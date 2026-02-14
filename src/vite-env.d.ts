@@ -10,6 +10,7 @@ declare global {
       setRecordingState: (state: boolean) => void;
       getRecordingState: () => Promise<boolean>;
       copyToClipboard: (text: string) => Promise<boolean>;
+      pasteToCursor: (text: string) => Promise<boolean>;
       hideWindow: () => Promise<void>;
       resizeWindow: (width: number, height: number) => void;
       onOpenSettings: (callback: () => void) => void;

@@ -6,7 +6,6 @@ function Settings() {
   const [groqKey, setGroqKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
   const [provider, setProvider] = useState<Provider>("groq");
-  const [autoCopy, setAutoCopy] = useState(true);
   const [saved, setSaved] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -16,7 +15,6 @@ function Settings() {
     setProvider(
       (localStorage.getItem("wisper_provider") as Provider) || "groq",
     );
-    setAutoCopy(localStorage.getItem("wisper_auto_copy") !== "false");
   }, []);
 
   const currentKey = provider === "groq" ? groqKey : openaiKey;
@@ -26,7 +24,6 @@ function Settings() {
     localStorage.setItem("wisper_groq_key", groqKey);
     localStorage.setItem("wisper_openai_key", openaiKey);
     localStorage.setItem("wisper_provider", provider);
-    localStorage.setItem("wisper_auto_copy", autoCopy.toString());
     localStorage.setItem(
       "wisper_api_key",
       provider === "groq" ? groqKey : openaiKey,
@@ -49,7 +46,7 @@ function Settings() {
     <div className="min-h-screen bg-dark-400 text-white p-4">
       <div className="max-w-sm mx-auto">
         <div className="flex items-center justify-center gap-3 mb-4">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center shadow-lg shadow-primary-500/20">
+          <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center shadow-lg shadow-primary-500/20">
             <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
             </svg>
@@ -121,24 +118,6 @@ function Settings() {
           </div>
 
           <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-            <div className="flex items-center justify-between">
-              <span className="text-white/90 text-sm">Auto-copy</span>
-              <button
-                onClick={() => setAutoCopy(!autoCopy)}
-                className={`w-10 h-5 rounded-full transition-all relative ${
-                  autoCopy ? "bg-primary-500" : "bg-white/15"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                    autoCopy ? "left-5" : "left-0.5"
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-
-          <div className="p-3 bg-white/5 rounded-xl border border-white/5">
             <div className="flex items-center gap-2 text-white/60 text-xs">
               <kbd className="px-1.5 py-0.5 bg-white/10 rounded text-white/70">Shift</kbd>
               <span>+</span>
@@ -153,7 +132,7 @@ function Settings() {
           className={`w-full mt-4 py-2.5 px-4 rounded-lg font-medium text-sm transition-all ${
             saved
               ? "bg-green-500 text-white"
-              : "bg-gradient-to-r from-primary-500 to-primary-600 text-white"
+              : "bg-primary-500 text-white"
           }`}
         >
           {saved ? "Saved!" : "Save"}

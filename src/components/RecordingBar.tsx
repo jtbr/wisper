@@ -4,7 +4,6 @@ import { Waveform } from "./Waveform";
 
 function RecordingBar() {
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [transcriptionComplete, setTranscriptionComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { isRecording, audioLevel, startRecording, stopRecording } =
@@ -66,16 +65,8 @@ function RecordingBar() {
       const trimmedText = text.trim();
 
       if (trimmedText && window.electronAPI) {
-        const autoCopyEnabled =
-          localStorage.getItem("wisper_auto_copy") !== "false";
-        if (autoCopyEnabled) {
-          await window.electronAPI.copyToClipboard(trimmedText);
-        }
-        setTranscriptionComplete(true);
-        setTimeout(() => {
-          window.electronAPI?.hideWindow();
-          setTranscriptionComplete(false);
-        }, 1200);
+        window.electronAPI.hideWindow();
+        window.electronAPI.pasteToCursor(trimmedText);
       } else if (window.electronAPI) {
         window.electronAPI.hideWindow();
       }
@@ -138,17 +129,6 @@ function RecordingBar() {
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
           <span className="text-red-300 text-sm font-medium">{error}</span>
-        </div>
-      );
-    }
-
-    if (transcriptionComplete) {
-      return (
-        <div className="flex items-center gap-2">
-          <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          <span className="text-green-300 text-sm font-medium">Copied!</span>
         </div>
       );
     }

@@ -190,6 +190,20 @@ ipcMain.handle("copy-to-clipboard", async (event, text) => {
   return true;
 });
 
+ipcMain.handle("paste-to-cursor", async (event, text) => {
+  const { execSync } = require("child_process");
+  
+  try {
+    const tempFile = '/tmp/wisper-text.txt';
+    require('fs').writeFileSync(tempFile, text);
+    const timeout = Math.max(5000, text.length * 50);
+    execSync(`ydotool type --file ${tempFile}`, { timeout, stdio: 'ignore' });
+  } catch (err) {
+    require('fs').appendFileSync('/tmp/wisper.log', `error: ${err.message}\n`);
+  }
+  return true;
+});
+
 ipcMain.handle("get-recording-state", async () => {
   return isRecording;
 });
