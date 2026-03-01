@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 
 interface AudioRecorderState {
   isRecording: boolean;
@@ -18,28 +18,82 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
   const audioChunksRef = useRef<Blob[]>([]);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number>(0);
+  const isMonitoringRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const streamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const resolveStopRef = useRef<((blob: Blob | null) => void) | null>(null);
+  const mimeTypeRef = useRef<string>("");
+
+  // Create AudioContext and AnalyserNode once on mount — no mic acquired, no OS recording indicator
+  useEffect(() => {
+    const audioContext = new AudioContext();
+    audioContextRef.current = audioContext;
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    analyserRef.current = analyser;
+
+    // Cache MIME type detection once
+    let mimeType = "audio/webm;codecs=opus";
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      mimeType = "audio/webm";
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = "audio/ogg;codecs=opus";
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = "";
+        }
+      }
+    }
+    mimeTypeRef.current = mimeType;
+
+    return () => {
+      isMonitoringRef.current = false;
+      audioContext.close();
+    };
+  }, []);
+
+  const playChime = useCallback((frequency: number) => {
+    const ctx = audioContextRef.current;
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.value = frequency;
+    const now = ctx.currentTime;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.25, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc.start(now);
+    osc.stop(now + 0.18);
+  }, []);
 
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      // Set up audio analyser for waveform
-      const audioContext = new AudioContext();
-      audioContextRef.current = audioContext;
+      const audioContext = audioContextRef.current!;
+      const analyser = analyserRef.current!;
+
+      // AudioContext may be suspended; resume before playing chime or connecting source
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+
+      playChime(880);
+
+      // Connect stream to the persistent AnalyserNode
       const source = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
       source.connect(analyser);
-      analyserRef.current = analyser;
+      streamSourceRef.current = source;
 
       // Start monitoring audio level
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      isMonitoringRef.current = true;
       const updateLevel = () => {
-        if (analyserRef.current) {
+        if (isMonitoringRef.current && analyserRef.current) {
           analyserRef.current.getByteFrequencyData(dataArray);
           const avg = dataArray.reduce((a, b) => a + b) / dataArray.length;
           setAudioLevel(avg / 255);
@@ -48,18 +102,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       };
       updateLevel();
 
-      // Detect best available MIME type
-      let mimeType = "audio/webm;codecs=opus";
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = "audio/webm";
-        if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = "audio/ogg;codecs=opus";
-          if (!MediaRecorder.isTypeSupported(mimeType)) {
-            mimeType = "";
-          }
-        }
-      }
-
+      const mimeType = mimeTypeRef.current;
       const mediaRecorder = mimeType
         ? new MediaRecorder(stream, { mimeType })
         : new MediaRecorder(stream);
@@ -77,7 +120,6 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
         const audioBlob = new Blob(audioChunksRef.current, {
           type: actualMimeType,
         });
-
         if (resolveStopRef.current) {
           resolveStopRef.current(audioBlob);
           resolveStopRef.current = null;
@@ -91,35 +133,38 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       console.error("Failed to start recording:", err);
       throw err;
     }
-  }, []);
+  }, [playChime]);
 
   const stopRecording = useCallback((): Promise<Blob | null> => {
     return new Promise((resolve) => {
       if (mediaRecorderRef.current && isRecording) {
         resolveStopRef.current = resolve;
 
+        playChime(660);
+
+        isMonitoringRef.current = false;
+        cancelAnimationFrame(animationFrameRef.current);
+        setAudioLevel(0);
+
+        // Disconnect stream source before stopping tracks
+        streamSourceRef.current?.disconnect();
+        streamSourceRef.current = null;
+
         mediaRecorderRef.current.stop();
         setIsRecording(false);
-        setAudioLevel(0);
-        cancelAnimationFrame(animationFrameRef.current);
-        analyserRef.current = null;
 
-        // Stop all tracks
+        // Stop mic tracks — releases the device and OS recording indicator
         if (streamRef.current) {
           streamRef.current.getTracks().forEach((track) => track.stop());
           streamRef.current = null;
         }
 
-        // Close AudioContext
-        if (audioContextRef.current) {
-          audioContextRef.current.close();
-          audioContextRef.current = null;
-        }
+        // AudioContext and AnalyserNode stay alive for next recording
       } else {
         resolve(null);
       }
     });
-  }, [isRecording]);
+  }, [isRecording, playChime]);
 
   return {
     isRecording,
