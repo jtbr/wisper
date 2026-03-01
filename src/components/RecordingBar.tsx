@@ -116,6 +116,9 @@ function RecordingBar() {
         handleStopRecording();
       });
 
+      const savedShortcut = localStorage.getItem("wisper_shortcut") || "Shift+Space";
+      window.electronAPI.updateShortcut(savedShortcut);
+
       return () => {
         window.electronAPI.removeAllListeners("start-recording");
         window.electronAPI.removeAllListeners("stop-recording");
@@ -154,7 +157,7 @@ function RecordingBar() {
         <div className="w-6 h-6 rounded-full border-2 border-white/20 flex items-center justify-center">
           <div className="w-2 h-2 rounded-full bg-white/40" />
         </div>
-        <span className="text-xs font-medium">Press Shift+Space to record</span>
+        <span className="text-xs font-medium">Press {localStorage.getItem("wisper_shortcut") || "Shift+Space"} to record</span>
       </div>
     );
   };
