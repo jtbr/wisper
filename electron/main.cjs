@@ -18,6 +18,7 @@ let mainWindow = null;
 let settingsWindow = null;
 let tray = null;
 let isRecording = false;
+let currentShortcut = "Shift+Space";
 
 const isDev = !app.isPackaged;
 
@@ -28,6 +29,21 @@ let isWayland = false;
 try {
   isWayland = process.env.XDG_SESSION_TYPE === "wayland";
 } catch (e) {}
+
+function registerShortcut(shortcut) {
+  if (!isWayland) {
+    globalShortcut.unregisterAll();
+    globalShortcut.register(shortcut, () => {
+      toggleRecording();
+    });
+  } else if (mainWindow) {
+    localShortcut.unregisterAll(mainWindow);
+    localShortcut.register(mainWindow, shortcut, () => {
+      toggleRecording();
+    });
+  }
+  currentShortcut = shortcut;
+}
 
 // Toggle recording: show+record or stop+hide
 function toggleRecording() {
@@ -214,6 +230,11 @@ ipcMain.on("set-recording-state", (event, state) => {
   isRecording = state;
 });
 
+ipcMain.handle("update-shortcut", async (event, shortcut) => {
+  registerShortcut(shortcut);
+  return true;
+});
+
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
@@ -236,17 +257,7 @@ if (!gotTheLock) {
       }
     });
 
-    globalShortcut.unregisterAll();
-
-    if (!isWayland) {
-      globalShortcut.register("Shift+Space", () => {
-        toggleRecording();
-      });
-    } else if (mainWindow) {
-      localShortcut.register(mainWindow, "Shift+Space", () => {
-        toggleRecording();
-      });
-    }
+    registerShortcut("Shift+Space");
   });
 }
 

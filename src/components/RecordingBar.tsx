@@ -143,6 +143,9 @@ function RecordingBar() {
         handleStopRecording();
       });
 
+      const savedShortcut = localStorage.getItem("wisper_shortcut") || "Shift+Space";
+      window.electronAPI.updateShortcut(savedShortcut);
+
       return () => {
         window.electronAPI.removeAllListeners("start-recording");
         window.electronAPI.removeAllListeners("stop-recording");

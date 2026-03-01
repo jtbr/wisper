@@ -14,6 +14,7 @@ declare global {
       hideWindow: () => Promise<void>;
       resizeWindow: (width: number, height: number) => void;
       onOpenSettings: (callback: () => void) => void;
+      updateShortcut: (shortcut: string) => Promise<boolean>;
       removeAllListeners: (channel: string) => void;
       saveDebugAudio: (arrayBuffer: ArrayBuffer, mimeType: string) => Promise<string | null>;
     };

@@ -2,6 +2,14 @@ import { useState, useEffect } from "react";
 
 type Provider = "groq" | "openai" | "custom";
 
+const SHORTCUT_OPTIONS = [
+  "Shift+Space",
+  "Ctrl+Alt+Space",
+  "Ctrl+Shift+Space",
+  "Ctrl+Shift+Insert",
+  "Alt+F12",
+];
+
 function Settings() {
   const [groqKey, setGroqKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
@@ -9,6 +17,7 @@ function Settings() {
   const [customUrl, setCustomUrl] = useState("");
   const [customModel, setCustomModel] = useState("");
   const [provider, setProvider] = useState<Provider>("groq");
+  const [shortcut, setShortcut] = useState("Shift+Space");
   const [saved, setSaved] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -21,6 +30,7 @@ function Settings() {
     setProvider(
       (localStorage.getItem("wisper_provider") as Provider) || "groq",
     );
+    setShortcut(localStorage.getItem("wisper_shortcut") || "Shift+Space");
   }, []);
 
   const currentKey = provider === "groq" ? groqKey : provider === "openai" ? openaiKey : customKey;
@@ -33,6 +43,10 @@ function Settings() {
     localStorage.setItem("wisper_custom_url", customUrl);
     localStorage.setItem("wisper_custom_model", customModel);
     localStorage.setItem("wisper_provider", provider);
+    localStorage.setItem("wisper_shortcut", shortcut);
+    if (window.electronAPI) {
+      window.electronAPI.updateShortcut(shortcut);
+    }
 
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -154,12 +168,20 @@ function Settings() {
           )}
 
           <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-            <div className="flex items-center gap-2 text-white/60 text-xs">
-              <kbd className="px-1.5 py-0.5 bg-white/10 rounded text-white/70">Shift</kbd>
-              <span>+</span>
-              <kbd className="px-1.5 py-0.5 bg-white/10 rounded text-white/70">Space</kbd>
-              <span>to record</span>
-            </div>
+            <label className="block text-white/70 text-xs font-medium mb-2">
+              Shortcut
+            </label>
+            <select
+              value={shortcut}
+              onChange={(e) => setShortcut(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary-500 appearance-none cursor-pointer"
+            >
+              {SHORTCUT_OPTIONS.map((opt) => (
+                <option key={opt} value={opt} className="bg-gray-800">
+                  {opt}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
