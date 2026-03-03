@@ -105,7 +105,7 @@ export function Waveform({ audioLevel, isRecording, onClick }: WaveformProps) {
       className="flex items-center justify-center py-2 cursor-pointer"
       onClick={onClick}
     >
-      <canvas ref={canvasRef} width={150} height={48} />
+      <canvas ref={canvasRef} width={160} height={60} />
     </div>
   );
 }

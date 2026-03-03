@@ -157,8 +157,6 @@ function RecordingBar() {
   }, [handleStartRecording, handleStopRecording]);
 
   const renderContent = () => {
-    if (!overlayVisible) return null;
-
     if (error) {
       return (
         <div className="flex items-center gap-2">
@@ -170,7 +168,7 @@ function RecordingBar() {
 
     if (isTranscribing) {
       return (
-        <div className="flex items-center gap-1.5 h-6">
+        <div className="flex items-center gap-1.5 h-8">
           <span className="w-1.5 bg-primary-500 rounded-full animate-[bounce_0.6s_infinite]" style={{ height: '40%' }} />
           <span className="w-1.5 bg-primary-500 rounded-full animate-[bounce_0.6s_infinite_0.1s]" style={{ height: '80%' }} />
           <span className="w-1.5 bg-primary-500 rounded-full animate-[bounce_0.6s_infinite_0.2s]" style={{ height: '60%' }} />
@@ -188,8 +186,15 @@ function RecordingBar() {
   };
 
   return (
-    <div className="w-full h-full flex items-center justify-center px-4">
-      {renderContent()}
+    <div className="w-full h-full flex items-center justify-center">
+      {overlayVisible && (
+        <div
+          className="flex items-center justify-center px-6 h-20 min-w-[198px] rounded-full ring-1 ring-white/10 shadow-xl"
+          style={{ background: "rgba(14, 14, 22, 0.60)" }}
+        >
+          {renderContent()}
+        </div>
+      )}
     </div>
   );
 }

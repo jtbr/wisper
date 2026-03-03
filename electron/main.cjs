@@ -88,8 +88,8 @@ function createWindow() {
   const { screen } = require("electron");
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
-  const winWidth = 320;
-  const winHeight = 80;
+  const winWidth = 340;
+  const winHeight = 90;
   const x = Math.round((width - winWidth) / 2);
   const y = Math.round(height - winHeight - 20);
 
