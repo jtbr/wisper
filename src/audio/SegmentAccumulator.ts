@@ -1,18 +1,18 @@
 import { VAD_CONFIG } from "./vadConfig";
 
-export class ChunkAccumulator {
+export class SegmentAccumulator {
   private frames: Float32Array[] = [];
   private scores: number[] = [];
   private sampleCount = 0;
   private wasSpeaking = false;
   private redemptionCounter = 0;
-  private chunkIndex = 0;
-  private onFlush: (wavBlob: Blob, chunkIndex: number) => void;
+  private segmentIndex = 0;
+  private onFlush: (wavBlob: Blob, segmentIndex: number) => void;
 
   // Debug: retains references to all frames across flushes for full-recording export
   private allFrames: Float32Array[] | null = null;
 
-  constructor(onFlush: (wavBlob: Blob, chunkIndex: number) => void) {
+  constructor(onFlush: (wavBlob: Blob, segmentIndex: number) => void) {
     this.onFlush = onFlush;
   }
 
@@ -31,7 +31,7 @@ export class ChunkAccumulator {
     const durationSec = this.sampleCount / VAD_CONFIG.sampleRate;
 
     // Hard cut: approaching Whisper's 30s limit
-    if (durationSec >= VAD_CONFIG.maxChunkDuration) {
+    if (durationSec >= VAD_CONFIG.maxSegmentDuration) {
       this.hardCut();
       return;
     }
@@ -48,8 +48,8 @@ export class ChunkAccumulator {
         this.wasSpeaking = false;
         this.redemptionCounter = 0;
 
-        // Natural pause: speech→silence transition with enough accumulated audio. send prior segment for transcription.
-        if (durationSec >= VAD_CONFIG.minChunkDuration) {
+        // Natural pause: speech->silence transition with enough accumulated audio. send prior segment for transcription.
+        if (durationSec >= VAD_CONFIG.minSegmentDuration) {
           this.flush(this.frames.length);
         }
       }
@@ -76,14 +76,14 @@ export class ChunkAccumulator {
       }
     }
 
-    // Cut at minIdx+1: frames [0..minIdx] go to the current chunk
+    // Cut at minIdx+1: frames [0..minIdx] go to the current segment
     const cutPoint = minIdx + 1;
     const remainingFrames = this.frames.slice(cutPoint);
     const remainingScores = this.scores.slice(cutPoint);
 
     this.flush(cutPoint);
 
-    // Start new chunk with the remaining frames
+    // Start new segment with the remaining frames
     this.frames = remainingFrames;
     this.scores = remainingScores;
     this.sampleCount = remainingFrames.reduce((sum, f) => sum + f.length, 0);
@@ -100,8 +100,8 @@ export class ChunkAccumulator {
 
     if (framesToFlush.length === 0) return;
 
-    const wavBlob = ChunkAccumulator.encodeWav(framesToFlush, VAD_CONFIG.sampleRate);
-    const idx = this.chunkIndex++;
+    const wavBlob = SegmentAccumulator.encodeWav(framesToFlush, VAD_CONFIG.sampleRate);
+    const idx = this.segmentIndex++;
     this.onFlush(wavBlob, idx);
 
     // If we flushed everything (natural pause), reset fully
@@ -121,7 +121,7 @@ export class ChunkAccumulator {
     const durationSec = this.sampleCount / VAD_CONFIG.sampleRate;
 
     // Check if it's just trailing silence below the minimum duration
-    if (durationSec < VAD_CONFIG.minFinalChunkDuration) {
+    if (durationSec < VAD_CONFIG.minFinalSegmentDuration) {
       const hasSpeech = this.scores.some(
         (s) => s >= VAD_CONFIG.positiveSpeechThreshold
       );
@@ -134,15 +134,15 @@ export class ChunkAccumulator {
     this.flush(this.frames.length);
   }
 
-  /** Total number of chunks produced so far */
-  get totalChunks(): number {
-    return this.chunkIndex;
+  /** Total number of segments produced so far */
+  get totalSegments(): number {
+    return this.segmentIndex;
   }
 
-  /** Encode the complete recording (all frames from all chunks) as a single WAV. Debug only. */
+  /** Encode the complete recording (all frames from all segments) as a single WAV. Debug only. */
   getFullRecordingWav(): Blob | null {
     if (!this.allFrames || this.allFrames.length === 0) return null;
-    return ChunkAccumulator.encodeWav(this.allFrames, VAD_CONFIG.sampleRate);
+    return SegmentAccumulator.encodeWav(this.allFrames, VAD_CONFIG.sampleRate);
   }
 
   reset(): void {
@@ -151,7 +151,7 @@ export class ChunkAccumulator {
     this.sampleCount = 0;
     this.wasSpeaking = false;
     this.redemptionCounter = 0;
-    this.chunkIndex = 0;
+    this.segmentIndex = 0;
     this.allFrames = null;
   }
 

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { ChunkAccumulator } from "../audio/ChunkAccumulator";
+import { SegmentAccumulator } from "../audio/SegmentAccumulator";
 import { WhisperQueue } from "../audio/WhisperQueue";
 import {
   getTranscriptionConfig,
@@ -33,7 +33,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
 
   // VAD pipeline refs
   const vadRef = useRef<any>(null); // MicVAD instance
-  const chunkAccumulatorRef = useRef<ChunkAccumulator | null>(null);
+  const segmentAccumulatorRef = useRef<SegmentAccumulator | null>(null);
   const whisperQueueRef = useRef<WhisperQueue | null>(null);
 
   // MediaRecorder fallback refs
@@ -44,7 +44,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
 
   // Debug audio saving
   const debugSessionRef = useRef<string | null>(null);
-  const debugChunkTranscriptsRef = useRef<Map<number, string>>(new Map());
+  const debugSegmentTranscriptsRef = useRef<Map<number, string>>(new Map());
 
   // Create AudioContext and AnalyserNode once on mount
   useEffect(() => {
@@ -180,9 +180,9 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       };
       whisperQueue.onLog = wlog;
       if (debugAudio) {
-        debugChunkTranscriptsRef.current = new Map();
-        whisperQueue.onChunkTranscribed = (idx, text) => {
-          debugChunkTranscriptsRef.current.set(idx, text);
+        debugSegmentTranscriptsRef.current = new Map();
+        whisperQueue.onSegmentTranscribed = (idx, text) => {
+          debugSegmentTranscriptsRef.current.set(idx, text);
         };
       }
       whisperQueueRef.current = whisperQueue;
@@ -194,15 +194,15 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
         // const t0 = Date.now();
         const { MicVAD } = await import("@ricky0123/vad-web");
 
-        const accumulator = new ChunkAccumulator((wavBlob, chunkIndex) => {
-          whisperQueueRef.current?.enqueue(wavBlob, chunkIndex);
+        const accumulator = new SegmentAccumulator((wavBlob, segmentIndex) => {
+          whisperQueueRef.current?.enqueue(wavBlob, segmentIndex);
           if (debugSessionRef.current) {
-            const chunkName = `chunk-${String(chunkIndex).padStart(3, "0")}.wav`;
-            saveDebugBlob(wavBlob, chunkName);
+            const segmentName = `segment-${String(segmentIndex).padStart(3, "0")}.wav`;
+            saveDebugBlob(wavBlob, segmentName);
           }
         });
         if (debugAudio) accumulator.enableDebug();
-        chunkAccumulatorRef.current = accumulator;
+        segmentAccumulatorRef.current = accumulator;
 
         let firstFrameResolve: (() => void) | null = null;
         const firstFrameReady = new Promise<void>((resolve) => {
@@ -240,7 +240,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
               }
             }
             if (!accumulateFrames) return; // discard frames during chime
-            chunkAccumulatorRef.current?.addFrame(
+            segmentAccumulatorRef.current?.addFrame(
               probabilities.isSpeech,
               frame,
             );
@@ -263,9 +263,10 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
           firstFrameReady.then(() => false),
           new Promise<boolean>((resolve) => setTimeout(() => resolve(true), 2000)),
         ]);
-        // if (timedOut) {
-        //   wlog("warn", `VAD: timed out waiting for first frame after ${Date.now() - t0}ms`);
-        // } else {
+        if (timedOut) {
+          wlog("warn", `VAD: timed out waiting for first frame after ${Date.now() - t0}ms`);
+        }
+        // else {
         //   wlog("info", `VAD: ready at +${Date.now() - t0}ms`);
         // }
       } catch (err) {
@@ -348,8 +349,8 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
         vadRef.current = null;
       }
       mediaRecorderRef.current = null;
-      chunkAccumulatorRef.current?.reset();
-      chunkAccumulatorRef.current = null;
+      segmentAccumulatorRef.current?.reset();
+      segmentAccumulatorRef.current = null;
       whisperQueueRef.current = null;
       cleanupStream();
       throw new Error(validationError);
@@ -359,22 +360,22 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       let transcript: string;
 
       if (vadAvailableRef.current && vadRef.current) {
-        // VAD pipeline: pause VAD, flush remaining chunks, finalize queue
+        // VAD pipeline: pause VAD, flush remaining segments, finalize queue
         await vadRef.current.pause();
         await vadRef.current.destroy();
         vadRef.current = null;
 
-        const accumulator = chunkAccumulatorRef.current!;
+        const accumulator = segmentAccumulatorRef.current!;
         accumulator.flushRemaining();
-        const totalChunks = accumulator.totalChunks;
+        const totalSegments = accumulator.totalSegments;
 
-        // Debug: save full recording WAV (all frames across all chunks)
+        // Debug: save full recording WAV (all frames across all segments)
         const fullWav = accumulator.getFullRecordingWav();
         if (fullWav) saveDebugBlob(fullWav, "full-recording.wav");
 
-        chunkAccumulatorRef.current = null;
+        segmentAccumulatorRef.current = null;
 
-        if (totalChunks === 0) {
+        if (totalSegments === 0) {
           // No speech detected at all
           cleanupStream();
           whisperQueueRef.current = null;
@@ -383,14 +384,14 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
         }
 
         const queue = whisperQueueRef.current!;
-        setTranscriptionProgress({ completed: 0, total: totalChunks });
-        transcript = await queue.finalize(totalChunks);
+        setTranscriptionProgress({ completed: 0, total: totalSegments });
+        transcript = await queue.finalize(totalSegments);
 
         if (debugSessionRef.current) {
           const lines: string[] = [];
-          [...debugChunkTranscriptsRef.current.entries()]
+          [...debugSegmentTranscriptsRef.current.entries()]
             .sort((a, b) => a[0] - b[0])
-            .forEach(([idx, text]) => lines.push(`=== Chunk ${idx} ===\n${text}\n`));
+            .forEach(([idx, text]) => lines.push(`=== Segment ${idx} ===\n${text}\n`));
           lines.push(`=== Final ===\n${transcript}`);
           saveDebugBlob(new Blob([lines.join("\n")], { type: "text/plain" }), "transcript.txt");
         }
