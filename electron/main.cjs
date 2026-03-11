@@ -264,13 +264,22 @@ if (!gotTheLock) {
   });
 }
 
-ipcMain.handle("save-debug-audio", async (event, arrayBuffer, mimeType) => {
+ipcMain.handle("save-debug-audio", async (event, arrayBuffer, mimeType, subdir, filename) => {
   try {
-    const extension = mimeType.includes("ogg") ? "ogg" : "webm";
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const debugDir = "/tmp/wisper-debug";
-    fs.mkdirSync(debugDir, { recursive: true });
-    const filePath = path.join(debugDir, `recording-${timestamp}.${extension}`);
+    let extension, filePath;
+    if (subdir && filename) {
+      // New style: save to /tmp/wisper-debug/{subdir}/{filename}
+      const debugDir = path.join("/tmp/wisper-debug", subdir);
+      fs.mkdirSync(debugDir, { recursive: true });
+      filePath = path.join(debugDir, filename);
+    } else {
+      // Legacy style: auto-generate filename from timestamp
+      extension = mimeType.includes("ogg") ? "ogg" : mimeType.includes("wav") ? "wav" : "webm";
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const debugDir = "/tmp/wisper-debug";
+      fs.mkdirSync(debugDir, { recursive: true });
+      filePath = path.join(debugDir, `recording-${timestamp}.${extension}`);
+    }
     fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
     return filePath;
   } catch (err) {

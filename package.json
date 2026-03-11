@@ -6,10 +6,12 @@
   "homepage": "https://github.com/taraksh01/wisper",
   "type": "module",
   "scripts": {
+    "copy-vad-assets": "bash scripts/copy-vad-assets.sh",
     "dev": "vite",
+    "prebuild": "pnpm run copy-vad-assets",
     "build": "tsc && vite build",
     "electron": "electron . --no-sandbox",
-    "electron:dev": "trap 'exit 0' INT TERM; concurrently --kill-others --success first 'vite' 'wait-on http://localhost:5173 && electron . --no-sandbox'",
+    "electron:dev": "pnpm run copy-vad-assets && trap 'exit 0' INT TERM; concurrently --kill-others --success first 'vite' 'wait-on http://localhost:5173 && electron . --no-sandbox'",
     "package": "pnpm run build && electron-builder --linux"
   },
   "keywords": [
@@ -55,6 +57,7 @@
     ]
   },
   "dependencies": {
+    "@ricky0123/vad-web": "^0.0.30",
     "electron-localshortcut": "^3.2.1"
   }
 }

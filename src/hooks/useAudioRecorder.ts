@@ -1,31 +1,51 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { ChunkAccumulator } from "../audio/ChunkAccumulator";
+import { WhisperQueue } from "../audio/WhisperQueue";
+import {
+  getTranscriptionConfig,
+  validateTranscriptionConfig,
+  transcribeAudioBlob,
+} from "../audio/transcriptionApi";
+import { VAD_CONFIG } from "../audio/vadConfig";
 
-interface AudioRecorderState {
+interface UseAudioRecorderReturn {
   isRecording: boolean;
   audioLevel: number;
-}
-
-interface UseAudioRecorderReturn extends AudioRecorderState {
+  transcriptionProgress: { completed: number; total: number } | null;
   startRecording: () => Promise<void>;
-  stopRecording: () => Promise<Blob | null>;
+  stopRecording: () => Promise<string | null>;
 }
 
 export function useAudioRecorder(): UseAudioRecorderReturn {
   const [isRecording, setIsRecording] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [transcriptionProgress, setTranscriptionProgress] = useState<{
+    completed: number;
+    total: number;
+  } | null>(null);
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number>(0);
   const isMonitoringRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const streamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const resolveStopRef = useRef<((blob: Blob | null) => void) | null>(null);
+
+  // VAD pipeline refs
+  const vadRef = useRef<any>(null); // MicVAD instance
+  const chunkAccumulatorRef = useRef<ChunkAccumulator | null>(null);
+  const whisperQueueRef = useRef<WhisperQueue | null>(null);
+
+  // MediaRecorder fallback refs
+  const vadAvailableRef = useRef(true);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const mimeTypeRef = useRef<string>("");
 
-  // Create AudioContext and AnalyserNode once on mount — no mic acquired, no OS recording indicator
+  // Debug audio saving
+  const debugSessionRef = useRef<string | null>(null);
+
+  // Create AudioContext and AnalyserNode once on mount
   useEffect(() => {
     const audioContext = new AudioContext();
     audioContextRef.current = audioContext;
@@ -33,7 +53,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     analyser.fftSize = 256;
     analyserRef.current = analyser;
 
-    // Cache MIME type detection once
+    // Cache MIME type for fallback MediaRecorder
     let mimeType = "audio/webm;codecs=opus";
     if (!MediaRecorder.isTypeSupported(mimeType)) {
       mimeType = "audio/webm";
@@ -69,6 +89,51 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     osc.stop(now + 0.18);
   }, []);
 
+  const startAudioLevelMonitoring = useCallback(() => {
+    const analyser = analyserRef.current;
+    if (!analyser) return;
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    isMonitoringRef.current = true;
+    const updateLevel = () => {
+      if (isMonitoringRef.current && analyserRef.current) {
+        analyserRef.current.getByteFrequencyData(dataArray);
+        const avg = dataArray.reduce((a, b) => a + b) / dataArray.length;
+        setAudioLevel(avg / 255);
+        animationFrameRef.current = requestAnimationFrame(updateLevel);
+      }
+    };
+    updateLevel();
+  }, []);
+
+  const stopAudioLevelMonitoring = useCallback(() => {
+    isMonitoringRef.current = false;
+    cancelAnimationFrame(animationFrameRef.current);
+    setAudioLevel(0);
+  }, []);
+
+  const cleanupStream = useCallback(() => {
+    streamSourceRef.current?.disconnect();
+    streamSourceRef.current = null;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
+  const saveDebugBlob = useCallback(async (blob: Blob, filename: string) => {
+    const session = debugSessionRef.current;
+    if (!session || !window.electronAPI?.saveDebugAudio) return;
+    try {
+      const arrayBuffer = await blob.arrayBuffer();
+      const savedPath = await window.electronAPI.saveDebugAudio(
+        arrayBuffer, blob.type, session, filename,
+      );
+      if (savedPath) console.log("Debug audio saved:", savedPath);
+    } catch (err) {
+      console.warn("Failed to save debug audio:", err);
+    }
+  }, []);
+
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -93,108 +158,229 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       source.connect(analyser);
       streamSourceRef.current = source;
 
-      // Start MediaRecorder immediately — codec must be running before speech arrives.
-      // Starting it here (before the warmup delay) gives the Opus encoder time to
-      // fully initialize; any leading silence is harmless for Whisper.
-      const mimeType = mimeTypeRef.current;
-      const mediaRecorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
+      // Check if debug audio saving is enabled
+      const debugAudio = localStorage.getItem("wisper_debug_audio") === "true";
+      if (debugAudio) {
+        debugSessionRef.current = new Date().toISOString().replace(/[:.]/g, "-");
+      } else {
+        debugSessionRef.current = null;
+      }
 
-      audioChunksRef.current = [];
+      // Get transcription config early so WhisperQueue is ready
+      const config = getTranscriptionConfig();
+      const whisperQueue = new WhisperQueue(config);
+      whisperQueue.onProgress = (completed, total) => {
+        setTranscriptionProgress({ completed, total });
+      };
+      whisperQueueRef.current = whisperQueue;
+
+      // Try VAD pipeline using MicVAD with our existing stream and AudioContext
+      let vadInitialized = false;
+      try {
+        const { MicVAD } = await import("@ricky0123/vad-web");
+
+        const accumulator = new ChunkAccumulator((wavBlob, chunkIndex) => {
+          whisperQueueRef.current?.enqueue(wavBlob, chunkIndex);
+          if (debugSessionRef.current) {
+            const chunkName = `chunk-${String(chunkIndex).padStart(3, "0")}.wav`;
+            saveDebugBlob(wavBlob, chunkName);
+          }
+        });
+        if (debugAudio) accumulator.enableDebug();
+        chunkAccumulatorRef.current = accumulator;
+
+        const vad = await MicVAD.new({
+          model: "v5",
+          baseAssetPath: "./vad/",
+          onnxWASMBasePath: "./vad/",
+          audioContext,
+          getStream: () => Promise.resolve(stream),
+          pauseStream: () => Promise.resolve(),   // we handle stream lifecycle ourselves
+          resumeStream: () => Promise.resolve(stream),
+          startOnLoad: false,
+          positiveSpeechThreshold: VAD_CONFIG.positiveSpeechThreshold,
+          negativeSpeechThreshold: VAD_CONFIG.negativeSpeechThreshold,
+          onFrameProcessed: (
+            probabilities: { isSpeech: number },
+            frame: Float32Array,
+          ) => {
+            chunkAccumulatorRef.current?.addFrame(
+              probabilities.isSpeech,
+              frame,
+            );
+          },
+          onSpeechStart: () => {},
+          onSpeechEnd: () => {},
+          onVADMisfire: () => {},
+          onSpeechRealStart: () => {},
+        });
+
+        await vad.start();
+        vadRef.current = vad;
+        vadAvailableRef.current = true;
+        vadInitialized = true;
+      } catch (err) {
+        console.warn("VAD initialization failed, falling back to MediaRecorder:", err);
+        vadAvailableRef.current = false;
+      }
+
+      // Fallback: use MediaRecorder if VAD failed
+      if (!vadInitialized) {
+        const mimeType = mimeTypeRef.current;
+        const mediaRecorder = mimeType
+          ? new MediaRecorder(stream, { mimeType })
+          : new MediaRecorder(stream);
+
+        audioChunksRef.current = [];
 
       // Resolve when the first encoded chunk arrives — proves full pipeline readiness.
-      const firstChunkReady = new Promise<void>((resolve) => {
-        let resolved = false;
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            audioChunksRef.current.push(event.data);
-            if (!resolved) {
-              resolved = true;
-              resolve();
+        const firstChunkReady = new Promise<void>((resolve) => {
+          let resolved = false;
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              audioChunksRef.current.push(event.data);
+              if (!resolved) {
+                resolved = true;
+                resolve();
+              }
             }
-          }
-        };
-      });
-
-      mediaRecorder.onstop = () => {
-        const actualMimeType = mediaRecorder.mimeType || "audio/webm";
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: actualMimeType,
+          };
         });
-        if (resolveStopRef.current) {
-          resolveStopRef.current(audioBlob);
-          resolveStopRef.current = null;
-        }
-      };
 
-      mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start(100);
+        mediaRecorderRef.current = mediaRecorder;
+        mediaRecorder.start(100);
 
-      // Start monitoring audio level
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      isMonitoringRef.current = true;
-      const updateLevel = () => {
-        if (isMonitoringRef.current && analyserRef.current) {
-          analyserRef.current.getByteFrequencyData(dataArray);
-          const avg = dataArray.reduce((a, b) => a + b) / dataArray.length;
-          setAudioLevel(avg / 255);
-          animationFrameRef.current = requestAnimationFrame(updateLevel);
-        }
-      };
-      updateLevel();
+        // Wait for first encoded audio chunk to confirm pipeline readiness (2s timeout)
+        await Promise.race([
+          firstChunkReady,
+          new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+        ]);
+      }
 
-      // Wait for end-to-end readiness: first encoded audio chunk must arrive.
-      // Adaptive: fast mics ~100ms, slow USB mics ~200–800ms.
-      // 2s timeout is a safety net for broken mics.
-      await Promise.race([
-        firstChunkReady,
-        new Promise<void>((resolve) => setTimeout(resolve, 2000)),
-      ]);
+      startAudioLevelMonitoring();
 
-      playChime(880);       // signals "mic is live, speak now"
-      audioChunksRef.current = audioChunksRef.current.slice(0, 1); // keep header chunk, discard remaining warmup
+      // Brief delay for VAD to initialize before chime
+      if (vadInitialized) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 200));
+      }
+
+      playChime(880);  // signals "mic is live, speak now"
+
+
+      if (!vadInitialized) {
+        // Keep header chunk for MediaRecorder fallback
+        audioChunksRef.current = audioChunksRef.current.slice(0, 1);
+      }
+
       setIsRecording(true);
     } catch (err) {
       console.error("Failed to start recording:", err);
       throw err;
     }
-  }, [playChime]);
+  }, [playChime, startAudioLevelMonitoring, saveDebugBlob]);
 
-  const stopRecording = useCallback((): Promise<Blob | null> => {
-    return new Promise((resolve) => {
-      if (mediaRecorderRef.current && isRecording) {
-        resolveStopRef.current = resolve;
+  const stopRecording = useCallback(async (): Promise<string | null> => {
+    if (!isRecording) {
+      return null;
+    }
 
-        playChime(660);
+    playChime(660);
+    stopAudioLevelMonitoring();
+    setIsRecording(false);
 
-        isMonitoringRef.current = false;
-        cancelAnimationFrame(animationFrameRef.current);
-        setAudioLevel(0);
+    // Validate config before transcribing
+    const config = getTranscriptionConfig();
+    const validationError = validateTranscriptionConfig(config);
+    if (validationError) {
+      // Clean up recording resources
+      if (vadRef.current) {
+        await vadRef.current.pause();
+        await vadRef.current.destroy();
+        vadRef.current = null;
+      }
+      mediaRecorderRef.current = null;
+      chunkAccumulatorRef.current?.reset();
+      chunkAccumulatorRef.current = null;
+      whisperQueueRef.current = null;
+      cleanupStream();
+      throw new Error(validationError);
+    }
 
-        // Disconnect stream source before stopping tracks
-        streamSourceRef.current?.disconnect();
-        streamSourceRef.current = null;
+    try {
+      let transcript: string;
 
-        mediaRecorderRef.current.stop();
-        setIsRecording(false);
+      if (vadAvailableRef.current && vadRef.current) {
+        // VAD pipeline: pause VAD, flush remaining chunks, finalize queue
+        await vadRef.current.pause();
+        await vadRef.current.destroy();
+        vadRef.current = null;
 
-        // Stop mic tracks — releases the device and OS recording indicator
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach((track) => track.stop());
-          streamRef.current = null;
+        const accumulator = chunkAccumulatorRef.current!;
+        accumulator.flushRemaining();
+        const totalChunks = accumulator.totalChunks;
+
+        // Debug: save full recording WAV (all frames across all chunks)
+        const fullWav = accumulator.getFullRecordingWav();
+        if (fullWav) saveDebugBlob(fullWav, "full-recording.wav");
+
+        chunkAccumulatorRef.current = null;
+
+        if (totalChunks === 0) {
+          // No speech detected at all
+          cleanupStream();
+          whisperQueueRef.current = null;
+          setTranscriptionProgress(null);
+          return null;
         }
 
-        // AudioContext and AnalyserNode stay alive for next recording
+        const queue = whisperQueueRef.current!;
+        setTranscriptionProgress({ completed: 0, total: totalChunks });
+        transcript = await queue.finalize(totalChunks);
       } else {
-        resolve(null);
+        // MediaRecorder fallback: get blob, transcribe directly
+        const mediaRecorder = mediaRecorderRef.current;
+        if (!mediaRecorder) {
+          cleanupStream();
+          return null;
+        }
+
+        const audioBlob = await new Promise<Blob>((resolve) => {
+          mediaRecorder.onstop = () => {
+            const actualMimeType = mediaRecorder.mimeType || "audio/webm";
+            resolve(
+              new Blob(audioChunksRef.current, { type: actualMimeType }),
+            );
+          };
+          mediaRecorder.stop();
+        });
+        mediaRecorderRef.current = null;
+
+        // Debug: save fallback recording blob
+        const ext = audioBlob.type.includes("ogg") ? "ogg" : "webm";
+        saveDebugBlob(audioBlob, `full-recording.${ext}`);
+
+        setTranscriptionProgress({ completed: 0, total: 1 });
+        transcript = await transcribeAudioBlob(audioBlob, config);
+        setTranscriptionProgress({ completed: 1, total: 1 });
       }
-    });
-  }, [isRecording, playChime]);
+
+      cleanupStream();
+      whisperQueueRef.current = null;
+      setTranscriptionProgress(null);
+      return transcript || null;
+    } catch (err) {
+      console.error("Transcription failed:", err);
+      cleanupStream();
+      whisperQueueRef.current = null;
+      setTranscriptionProgress(null);
+      throw err;
+    }
+  }, [isRecording, playChime, stopAudioLevelMonitoring, cleanupStream, saveDebugBlob]);
 
   return {
     isRecording,
     audioLevel,
+    transcriptionProgress,
     startRecording,
     stopRecording,
   };

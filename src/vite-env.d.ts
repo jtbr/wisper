@@ -16,7 +16,7 @@ declare global {
       onOpenSettings: (callback: () => void) => void;
       updateShortcut: (shortcut: string) => Promise<boolean>;
       removeAllListeners: (channel: string) => void;
-      saveDebugAudio: (arrayBuffer: ArrayBuffer, mimeType: string) => Promise<string | null>;
+      saveDebugAudio: (arrayBuffer: ArrayBuffer, mimeType: string, subdir?: string, filename?: string) => Promise<string | null>;
     };
   }
 }
