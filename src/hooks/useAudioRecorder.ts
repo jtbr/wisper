@@ -120,6 +120,10 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     }
   }, []);
 
+  const wlog = useCallback((level: "info" | "warn" | "error", message: string) => {
+    window.electronAPI?.log(level, message);
+  }, []);
+
   const saveDebugBlob = useCallback(async (blob: Blob, filename: string) => {
     const session = debugSessionRef.current;
     if (!session || !window.electronAPI?.saveDebugAudio) return;
@@ -172,6 +176,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       whisperQueue.onProgress = (completed, total) => {
         setTranscriptionProgress({ completed, total });
       };
+      whisperQueue.onLog = wlog;
       whisperQueueRef.current = whisperQueue;
 
       // Try VAD pipeline using MicVAD with our existing stream and AudioContext
@@ -220,6 +225,8 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
         vadAvailableRef.current = true;
         vadInitialized = true;
       } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        wlog("warn", `VAD initialization failed, falling back to MediaRecorder: ${msg}`);
         console.warn("VAD initialization failed, falling back to MediaRecorder:", err);
         vadAvailableRef.current = false;
       }
@@ -277,7 +284,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       console.error("Failed to start recording:", err);
       throw err;
     }
-  }, [playChime, startAudioLevelMonitoring, saveDebugBlob]);
+  }, [playChime, startAudioLevelMonitoring, saveDebugBlob, wlog]);
 
   const stopRecording = useCallback(async (): Promise<string | null> => {
     if (!isRecording) {
@@ -369,13 +376,15 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       setTranscriptionProgress(null);
       return transcript || null;
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      wlog("error", `Transcription failed: ${msg}`);
       console.error("Transcription failed:", err);
       cleanupStream();
       whisperQueueRef.current = null;
       setTranscriptionProgress(null);
       throw err;
     }
-  }, [isRecording, playChime, stopAudioLevelMonitoring, cleanupStream, saveDebugBlob]);
+  }, [isRecording, playChime, stopAudioLevelMonitoring, cleanupStream, saveDebugBlob, wlog]);
 
   return {
     isRecording,

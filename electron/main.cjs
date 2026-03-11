@@ -22,6 +22,13 @@ let currentShortcut = "Shift+Space";
 
 const isDev = !app.isPackaged;
 
+const LOG_FILE = '/tmp/wisper.log';
+function log(level, message) {
+  const line = `[${new Date().toISOString()}] ${level.toUpperCase()}: ${message}\n`;
+  fs.appendFileSync(LOG_FILE, line);
+  if (isDev) console.log(line.trimEnd());
+}
+
 app.commandLine.appendSwitch("disable-gpu-compositing");
 app.commandLine.appendSwitch("enable-accelerated-2d-canvas");
 
@@ -221,9 +228,13 @@ ipcMain.handle("paste-to-cursor", async (event, text) => {
     // key delay (how fast the text is written) may be something worth exposing to the user
     execSync(`ydotool type --delay 100 --key-delay 15 --file ${tempFile}`, { timeout, stdio: 'ignore' });
   } catch (err) {
-    require('fs').appendFileSync('/tmp/wisper.log', `error: ${err.message}\n`);
+    log('error', `paste-to-cursor failed: ${err.message}`);
   }
   return true;
+});
+
+ipcMain.on("log", (_event, level, message) => {
+  log(level, message);
 });
 
 ipcMain.handle("get-recording-state", async () => {
