@@ -12,6 +12,7 @@ export class WhisperQueue {
   private results = new Map<number, string>();
   private config: TranscriptionConfig;
   private expectedTotal: number | null = null;
+  private separator = " ";
   private resolveFinalize: ((transcript: string) => void) | null = null;
   onProgress: ((completed: number, total: number) => void) | null = null;
   onSegmentTranscribed: ((segmentIndex: number, text: string) => void) | null = null;
@@ -27,8 +28,9 @@ export class WhisperQueue {
   }
 
   /** Signal that no more segments will be enqueued; returns the full transcript once all complete */
-  finalize(totalSegments: number): Promise<string> {
+  finalize(totalSegments: number, separator = " "): Promise<string> {
     this.expectedTotal = totalSegments;
+    this.separator = separator;
 
     // If all segments are already transcribed (e.g. single short recording)
     if (this.results.size >= totalSegments && this.inFlight === 0 && this.queue.length === 0) {
@@ -113,6 +115,6 @@ export class WhisperQueue {
         ordered.push(text);
       }
     }
-    return ordered.join(" ");
+    return ordered.join(this.separator);
   }
 }

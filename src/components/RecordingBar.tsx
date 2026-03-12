@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAudioRecorder } from "../hooks/useAudioRecorder";
 import { Waveform } from "./Waveform";
+import { getLLMConfig, postProcessTranscript, SPLIT_POINT_MARKER } from "../audio/llmApi";
 
 function RecordingBar() {
   const [overlayVisible, setOverlayVisible] = useState(false);
@@ -13,6 +14,7 @@ function RecordingBar() {
     transcriptionProgress,
     startRecording,
     stopRecording,
+    saveDebugBlob,
   } = useAudioRecorder();
 
   const handleStartRecording = useCallback(async () => {
@@ -35,12 +37,42 @@ function RecordingBar() {
     setIsTranscribing(true);
 
     try {
-      const transcript = await stopRecording();
+      const llmConfig = getLLMConfig();
+      const transcript = await stopRecording(llmConfig ? SPLIT_POINT_MARKER : undefined);
 
       if (transcript && window.electronAPI) {
+        let finalTranscript = transcript;
+        if (llmConfig) {
+          try {
+            finalTranscript = await postProcessTranscript(transcript, llmConfig);
+          } catch (err) {
+            console.error("LLM post-processing failed, using raw transcript:", err);
+            window.electronAPI.log(
+              "error",
+              `LLM post-processing failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+            finalTranscript = transcript.split(SPLIT_POINT_MARKER).join(" ");
+          }
+          if (localStorage.getItem("wisper_debug_audio") === "true") {
+            const payload = JSON.stringify(
+              {
+                model: llmConfig.model,
+                system_prompt: llmConfig.systemPrompt,
+                input: transcript,
+                output: finalTranscript,
+              },
+              null,
+              2,
+            );
+            saveDebugBlob(
+              new Blob([payload], { type: "application/json" }),
+              "llm-pass.json",
+            );
+          }
+        }
         setOverlayVisible(false);
         window.electronAPI.hideWindow();
-        window.electronAPI.pasteToCursor(transcript);
+        window.electronAPI.pasteToCursor(finalTranscript);
       } else if (window.electronAPI) {
         setOverlayVisible(false);
         window.electronAPI.hideWindow();

@@ -13,7 +13,8 @@ interface UseAudioRecorderReturn {
   audioLevel: number;
   transcriptionProgress: { completed: number; total: number } | null;
   startRecording: () => Promise<void>;
-  stopRecording: () => Promise<string | null>;
+  stopRecording: (separator?: string) => Promise<string | null>;
+  saveDebugBlob: (blob: Blob, filename: string) => Promise<void>;
 }
 
 export function useAudioRecorder(): UseAudioRecorderReturn {
@@ -332,7 +333,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     }
   }, [playChime, startAudioLevelMonitoring, saveDebugBlob, wlog]);
 
-  const stopRecording = useCallback(async (): Promise<string | null> => {
+  const stopRecording = useCallback(async (separator = " "): Promise<string | null> => {
     if (!isRecording) {
       return null;
     }
@@ -388,7 +389,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
 
         const queue = whisperQueueRef.current!;
         setTranscriptionProgress({ completed: 0, total: totalSegments });
-        transcript = await queue.finalize(totalSegments);
+        transcript = await queue.finalize(totalSegments, separator);
 
         if (debugSessionRef.current) {
           const lines: string[] = [];
@@ -396,7 +397,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
             .sort((a, b) => a[0] - b[0])
             .forEach(([idx, { text, durationSec }]) =>
               lines.push(`=== Segment ${idx} (${durationSec.toFixed(1)}s) ===\n${text}\n`));
-          lines.push(`=== Final ===\n${transcript}`);
+          lines.push(`=== Full concatenated ===\n${transcript}`);
           saveDebugBlob(new Blob([lines.join("\n")], { type: "text/plain" }), "transcript.txt");
         }
       } else {
@@ -452,5 +453,6 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     transcriptionProgress,
     startRecording,
     stopRecording,
+    saveDebugBlob,
   };
 }
