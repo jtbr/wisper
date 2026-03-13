@@ -26,6 +26,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Logging
   log: (level, message) => ipcRenderer.send("log", level, message),
 
+  // Process management
+  spawnDetached: (command) => ipcRenderer.invoke("spawn-detached", command),
+
   // Debug
   saveDebugAudio: (arrayBuffer, mimeType, subdir, filename) =>
     ipcRenderer.invoke("save-debug-audio", arrayBuffer, mimeType, subdir, filename),

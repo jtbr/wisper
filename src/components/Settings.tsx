@@ -34,6 +34,8 @@ function Settings() {
   const [llmCustomUrl, setLlmCustomUrl] = useState("");
   const [llmCustomKey, setLlmCustomKey] = useState("");
   const [llmSystemPrompt, setLlmSystemPrompt] = useState(LLM_DEFAULT_SYSTEM_PROMPT);
+  const [customStartCmd, setCustomStartCmd] = useState("");
+  const [llmCustomStartCmd, setLlmCustomStartCmd] = useState("");
 
   useEffect(() => {
     setGroqKey(localStorage.getItem("wisper_groq_key") || "");
@@ -50,6 +52,8 @@ function Settings() {
     setLlmCustomUrl(localStorage.getItem("wisper_llm_custom_url") || LLM_DEFAULT_CUSTOM_URL);
     setLlmCustomKey(localStorage.getItem("wisper_llm_custom_key") || "");
     setLlmSystemPrompt(localStorage.getItem("wisper_llm_system_prompt") || LLM_DEFAULT_SYSTEM_PROMPT);
+    setCustomStartCmd(localStorage.getItem("wisper_custom_start_cmd") || "");
+    setLlmCustomStartCmd(localStorage.getItem("wisper_llm_custom_start_cmd") || "");
   }, []);
 
   const currentKey = provider === "groq" ? groqKey : provider === "openai" ? openaiKey : customKey;
@@ -155,14 +159,14 @@ function Settings() {
               </div>
               <div>
                 <label className="block text-white/70 text-xs font-medium mb-1">
-                  API Key
+                  API Key <span className="text-white/40">{provider === "custom" ? "(optional)" : ""}</span>
                 </label>
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
                     value={currentKey}
                     onChange={persist(setCurrentKey, currentKeyStorageKey)}
-                    placeholder={provider === "groq" ? "gsk_..." : provider === "openai" ? "sk-..." : "Bearer token..."}
+                    placeholder={provider === "groq" ? "gsk_..." : provider === "openai" ? "sk-..." : "Bearer token (if required)"}
                     className="w-full bg-white/5 border border-white/10 rounded-lg pl-3 pr-10 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary-500"
                   />
                   <button
@@ -204,6 +208,19 @@ function Settings() {
                       placeholder="whisper-1"
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary-500"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-white/70 text-xs font-medium mb-1">
+                      Start Command <span className="text-white/40">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={customStartCmd}
+                      onChange={persist(setCustomStartCmd, "wisper_custom_start_cmd")}
+                      placeholder="docker compose -f https://raw.githubusercontent.com/speaches-ai/speaches/master/compose.cuda-cdi.yaml --detach"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary-500"
+                    />
+                    <p className="text-white/40 text-xs mt-1">Shell command to start this service if it&apos;s not running</p>
                   </div>
                 </>
               )}
@@ -253,7 +270,7 @@ function Settings() {
               </div>
               {(llmProvider === "groq" || llmProvider === "openai") && (
                 <p className="text-white/40 text-xs">
-                  Uses the API key from the Transcription tab.
+                  Uses the API key from the Transcription tab, even if not selected
                 </p>
               )}
               {llmProvider !== "none" && (
@@ -280,6 +297,7 @@ function Settings() {
                           type="text"
                           value={llmCustomUrl}
                           onChange={persist(setLlmCustomUrl, "wisper_llm_custom_url")}
+                          placeholder="http://localhost:11434/v1/chat/completions"
                           className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary-500"
                         />
                       </div>
@@ -289,9 +307,22 @@ function Settings() {
                           type="password"
                           value={llmCustomKey}
                           onChange={persist(setLlmCustomKey, "wisper_llm_custom_key")}
-                          placeholder="Bearer token..."
+                          placeholder="Bearer token (if required)"
                           className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary-500"
                         />
+                      </div>
+                      <div>
+                        <label className="block text-white/70 text-xs font-medium mb-1">
+                          Start Command <span className="text-white/40">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={llmCustomStartCmd}
+                          onChange={persist(setLlmCustomStartCmd, "wisper_llm_custom_start_cmd")}
+                          placeholder="ollama serve"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary-500"
+                        />
+                        <p className="text-white/40 text-xs mt-1">Shell command to start this service if it&apos;s not running</p>
                       </div>
                     </>
                   )}
@@ -305,7 +336,7 @@ function Settings() {
                 <textarea
                   value={llmSystemPrompt}
                   onChange={persist(setLlmSystemPrompt, "wisper_llm_system_prompt")}
-                  rows={5}
+                  rows={4}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary-500 resize-y"
                 />
               </div>

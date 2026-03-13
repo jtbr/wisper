@@ -176,7 +176,7 @@ function createSettingsWindow() {
     minWidth: 320,
     minHeight: 360,
     width: 600,
-    height: 640,
+    height: 720,
     frame: true,
     resizable: true,
     minimizable: true,
@@ -254,6 +254,19 @@ ipcMain.handle("paste-to-cursor", async (event, text) => {
 
 ipcMain.on("log", (_event, level, message) => {
   log(level, message);
+});
+
+ipcMain.handle("spawn-detached", async (event, command) => {
+  const { spawn } = require("child_process");
+  try {
+    log("info", `spawn-detached: ${command}`);
+    const child = spawn(command, { shell: true, detached: true, stdio: "ignore" });
+    child.unref();
+    return { ok: true, pid: child.pid };
+  } catch (err) {
+    log("error", `spawn-detached failed: ${err.message}`);
+    return { ok: false, error: err.message };
+  }
 });
 
 ipcMain.handle("get-recording-state", async () => {

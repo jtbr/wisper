@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAudioRecorder } from "../hooks/useAudioRecorder";
 import { Waveform } from "./Waveform";
 import { getLLMConfig, postProcessTranscript, SPLIT_POINT_MARKER } from "../audio/llmApi";
+import { ensureCustomServices } from "../audio/customModelService";
 
 function RecordingBar() {
   const [overlayVisible, setOverlayVisible] = useState(false);
@@ -11,7 +12,6 @@ function RecordingBar() {
   const {
     isRecording,
     audioLevel,
-    transcriptionProgress,
     startRecording,
     stopRecording,
     saveDebugBlob,
@@ -20,6 +20,7 @@ function RecordingBar() {
   const handleStartRecording = useCallback(async () => {
     try {
       setError(null);
+      ensureCustomServices((level, msg) => window.electronAPI?.log(level, msg)).catch(() => {});
       await startRecording();
       if (window.electronAPI) {
         window.electronAPI.setRecordingState(true);
