@@ -23,11 +23,14 @@ flowchart LR
 
     WQ --> FINAL["`Transcript
     assembled in order`"]
-    FINAL --> PASTE(["`**Pasted to cursor**`"])
+    FINAL --> LLMAPI["`LLM API fixes formatting,
+    removes filler text
+    (if enabled)`"] --> PASTE(["`**Pasted to cursor**`"])
 
     style START fill:#14532d,stroke:#22c55e,color:#86efac
     style PASTE fill:#14532d,stroke:#22c55e,color:#86efac
     style WQ fill:#1a2744,stroke:#3b82f6,color:#93c5fd
+    style LLMAPI fill:#3b1f5e,stroke:#a855f7,color:#e9d5ff
 ```
 
 ## Detailed Pipeline
@@ -87,10 +90,10 @@ flowchart TD
     WQ --> RETRY{"Failed?"}
     RETRY -->|"`Retry 2x
     exp. backoff`"| WQ
-    RETRY -->|Still failed| PLACEHOLDER["transcription failed"]
+    RETRY -->|Still failed| ABORT(["`**Abort** buzzer +
+    error msg displayed`"])
     RETRY -->|Success| RESULTS[("`Results map
     segment index to text`")]
-    PLACEHOLDER --> RESULTS
 
     STOP([Recording stops]) --> STOPUI["`Chime 660Hz
     waveform → thinking display`"]
@@ -107,9 +110,20 @@ flowchart TD
     in-flight requests`"]
     WAIT --> CONCAT["`Concatenate results
     in segment order`"]
-    CONCAT --> TRANSCRIPT["`**Final transcript**`"]
-    TRANSCRIPT --> PASTE["`pasteToCursor
+    CONCAT --> TRANSCRIPT["`**Raw transcript**
+    with segment split markers`"]
+    TRANSCRIPT --> LLMCHECK{"`LLM formatting
+    enabled?`"}
+    LLMCHECK -->|Yes| LLMPASS["`**LLM API**
+    postProcessTranscript
+    fix punctuation, fillers
+    remove split markers`"]
+    LLMCHECK -->|No| STRIPMARKERS["`Strip split markers`"]
+    LLMPASS -->|Success| PASTE["`pasteToCursor
     via ydotool`"]
+    LLMPASS -->|Failed - fallback| STRIPMARKERS
+    STRIPMARKERS --> PASTE
+    DIRECT --> LLMCHECK
 
     VADINIT -->|"`No - WASM or
     model load failed
@@ -127,15 +141,17 @@ flowchart TD
     transcript.txt`"]:::debug
     BLOB --> DIRECT["`transcribeAudioBlob
     single API call`"]
-    DIRECT --> TRANSCRIPT
 
     classDef debug fill:#2d2d3d,stroke:#666,stroke-dasharray: 5 5,color:#999
     style WQ fill:#1a2744,stroke:#3b82f6,color:#93c5fd
     style START fill:#14532d,stroke:#22c55e,color:#86efac
     style STOP fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
-    style TRANSCRIPT fill:#14532d,stroke:#22c55e,color:#86efac
     style MIC fill:#312e81,stroke:#818cf8,color:#c7d2fe
     style VAD fill:#1e3a5f,stroke:#60a5fa,color:#bfdbfe
     style CA fill:#1e3a5f,stroke:#60a5fa,color:#bfdbfe
     style MR fill:#3b3b1a,stroke:#ca8a04,color:#fde68a
+    style ABORT fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+    style LLMPASS fill:#3b1f5e,stroke:#a855f7,color:#e9d5ff
+    style TRANSCRIPT fill:#1a3a2a,stroke:#4ade80,color:#bbf7d0
+    style PASTE fill:#14532d,stroke:#22c55e,color:#86efac
 ```

@@ -6,20 +6,21 @@ Wisper is a WisprFlow-like voice dictation application for Linux. It provides se
 
 - **Global Hotkey** - Press hotkey to start/stop recording from anywhere
 - **Direct Text Input** - Transcribed text is typed directly at your cursor (no copy-paste needed)
-- **AI Transcription** - Transcribe audio using OpenAI Whisper via Groq or OpenAI APIs
+- **AI Transcription** - Transcribe audio using OpenAI Whisper via Groq, OpenAI, or any compatible local/custom endpoint
 - **Unlimited Recording Length** - Voice Activity Detection (VAD) segments long dictations at natural pauses; each segment is sent to Whisper concurrently, so there is no time limit on recordings
+- **LLM Formatting Pass** - Optional post-processing by an LLM to fix punctuation, remove filler words, and clean up speech artefacts
 - **Multilingual** - Supports 99+ languages with automatic detection
 - **Minimal UI** - Slim, transparent recording bar with real-time audio waveform
 - **System Tray** - Quick access to settings and app controls
-- **Compact Settings** - Configure API keys in a dedicated window
 - **Wayland & X11 Support** - Works on both display servers
-- **Privacy First** - Records locally before sending to API. The API endpoint can be local too (e.g. see [`speaches`](https://speaches.ai))
+- **Privacy First** - Records locally before sending to API. Both the transcription and formatting endpoints can be local (e.g. [`speaches`](https://speaches.ai) for Whisper, [`ollama`](https://ollama.com) for LLM)
+- **Auto-start & Warm-up** - Wisper can start local servers automatically on first use and pre-load models into GPU memory to reduce first-request latency
 
 ## Requirements
 
 - Linux (Debian/Ubuntu 22.04+)
 - Microphone access
-- Internet connection (for API calls)
+- Internet connection (for cloud API calls) or a local model server
 - **ydotool** - Used for direct text input (install instructions below)
 - **Wayland users**: Need to set up custom keyboard shortcut (see Wayland Setup below)
 
@@ -80,13 +81,13 @@ Download the latest `.AppImage` or `.deb` package from the [Releases](https://gi
 ### First Time Setup
 
 1. Right-click the system tray icon and select **Settings**
-2. Choose your API provider:
+2. Choose your transcription provider:
    - **Groq**: Free, fast Whisper models (recommended)
    - **OpenAI**: Official Whisper API
-   - **Custom**: Any OpenAI transcription-API-compatible model endpoint (e.g. locally-served)
+   - **Custom**: Any OpenAI transcription-API-compatible endpoint (e.g. locally-served)
 3. Enter your API key (optional for custom)
-4. Choose Wisper's *hotkey* (`Shift-Space` by default)
-5. Click **Save**
+4. Optionally configure a **Formatting** (LLM) provider for post-processing
+5. Choose Wisper's *hotkey* (`Shift-Space` by default)
 
 ### Recording
 
@@ -97,7 +98,7 @@ Download the latest `.AppImage` or `.deb` package from the [Releases](https://gi
 
 ### System Tray
 
-- **Left-click**: Toggle recording (same has hotkey-press)
+- **Left-click**: Toggle recording (same as hotkey-press)
 - **Right-click**: Open menu (Settings, Quit)
 
 ## Wayland Setup (GNOME/Debian)
@@ -129,25 +130,54 @@ For development:
 
 ## Configuration
 
-### API Keys
-
-Wisper supports these transcription providers:
+### Transcription
 
 | Provider | Model | Cost | Get API Key |
 |----------|-------|------|-------------|
-| **Groq** (Recommended) | `whisper-large-v3-turbo` | Free | [console.groq.com](https://console.groq.com/) |
+| **Groq** (Recommended) | `whisper-large-v3-turbo` | Free tier | [console.groq.com](https://console.groq.com/) |
 | **OpenAI** | `whisper-1` | Paid | [platform.openai.com](https://platform.openai.com/api-keys) |
-| **Custom** | Any OpenAI API'd ASR model | Free if local |  |
+| **Custom** | Any OpenAI-compatible ASR endpoint | Free if local | — |
 
-### Settings
+For the **Custom** provider, set the full endpoint URL (e.g. `http://localhost:8000/v1/audio/transcriptions`) and the model name as the server expects it. [`speaches`](https://speaches.ai) is a good self-hosted option.
 
-Access settings via system tray → **Settings**
+### LLM Formatting (optional)
 
-| Option | Description |
-|--------|-------------|
-| Provider | Choose between Groq, OpenAI and Custom |
-| API Key | Your provider's API key |
-| Shortcut | *Shift-Space*, *Ctrl-Alt-Space*, *Ctrl-Shift-Space*, *Ctrl-Shift-Insert*, or *Alt-F12* |
+After transcription, Wisper can send the raw transcript to an LLM to clean it up: fixing punctuation, removing filler words ("um", "uh"), and correcting verbal course corrections. The system prompt is fully editable in settings.
+
+| Provider | Default model | Cost | Notes |
+|----------|--------------|------|-------|
+| **Groq** | `llama-3.3-70b-versatile` | Free tier | Uses your Groq API key from the transcription tab |
+| **OpenAI** | `gpt-4.1-mini` | Paid | Uses your OpenAI API key from the transcription tab |
+| **Custom** | — | Free if local | Default URL: `http://localhost:11434/v1/chat/completions` ([ollama](https://ollama.com)) |
+
+For the **Custom** provider, it's best to use a model with at least 8B parameters to work reasonably well and avoid problems. If you can't run that locally and don't want to use another service, you can disable LLM formatting altogether. The results are still mostly pretty good.
+
+### Local / Custom Servers
+
+For both the transcription and LLM providers, the **Start Command** field (under Custom settings) lets Wisper auto-start the server when it isn't running. On first recording, Wisper health-checks each configured custom endpoint. If the check fails and a start command is set, it runs that command and waits up to 15 seconds for the server to respond before proceeding.
+
+Wisper also sends a warm-up request to each custom endpoint on first use (and periodically thereafter, every 5 minutes by default) to pre-load the model into GPU memory. This avoids the long first-request delay that occurs when models are loaded on demand.
+
+#### Speaches docker setup
+
+If you don't already have `speaches`, but you have `docker compose` you can set it to run automatically with zero install simply by adding `docker compose -f https://github.com/speaches-ai/speaches.git#master:compose.cuda-cdi.yaml up --detach` as the transcription start command (this `yaml` file assumes you have an Nvidia GPU with CDI support, adjust as necessary). The first time you're running you'll need to [download a Whisper STT model as described here](https://speaches.ai/usage/model-discovery/#__tabbed_1_2), for example `Systran/faster-distil-whisper-large-v3`. That's it!
+
+### Settings Reference
+
+| Setting | Where | Description |
+|---------|-------|-------------|
+| Provider | Transcription tab | Groq, OpenAI, or Custom |
+| API Key | Transcription tab | Provider API key |
+| API URL | Transcription tab (Custom) | Full transcription endpoint URL |
+| Model name | Transcription tab (Custom) | Model identifier as the server expects |
+| Start Command | Transcription tab (Custom) | Shell command to launch the server if not running (e.g. `speaches serve`) |
+| Shortcut | Transcription tab | Global hotkey |
+| Formatting provider | Formatting tab | None, Groq, OpenAI, or Custom |
+| Language Model | Formatting tab | LLM model name |
+| API URL | Formatting tab (Custom) | Full chat completions endpoint URL |
+| API Key | Formatting tab (Custom) | Optional bearer token |
+| Start Command | Formatting tab (Custom) | Shell command to launch the LLM server (e.g. `ollama serve`) |
+| System Prompt | Formatting tab | Instructions sent to the LLM; editable |
 
 ## Building
 
@@ -163,24 +193,59 @@ pnpm run package          # Create distributables (.AppImage, .deb)
 
 ## Troubleshooting
 
-### ydotool not working
-- You will see an error in `/tmp/wisper.log`, or test manually with `ydotool type "some text"`. "some text" should appear in the terminal.
-- Ensure ydotool is installed
-- The user running `wisper` needs write access to `/dev/uinput`. Either: `sudo chmod 666 /dev/uinput`, or follow [this procedure](https://github.com/ReimuNotMoe/ydotool/issues/36#issuecomment-788148567)
-- For Wayland, ydotool may require additional setup
+Wisper logs to `/tmp/wisper.log`. When something goes wrong, check there first.
+
+### Text not being typed / ydotool not working
+
+- Test manually: `ydotool type "hello"` — the word should appear in your terminal
+- Ensure ydotool is installed and the daemon (`ydotoold`) is running
+- The user running Wisper needs write access to `/dev/uinput`. Either:
+  ```bash
+  sudo chmod 666 /dev/uinput
+  ```
+  or follow [this procedure](https://github.com/ReimuNotMoe/ydotool/issues/36#issuecomment-788148567) to add yourself to the `input` group persistently
+- On Wayland, some compositors require additional permissions — check your distro's ydotool notes
 
 ### Global shortcut not working on Wayland
-- Set up a custom keyboard shortcut in GNOME Settings (see Wayland Setup above)
-- The app uses single-instance lock, so running it again toggles recording
+
+- Set up a custom keyboard shortcut in your DE's settings (see Wayland Setup above)
+- Running Wisper again from the command line toggles recording — useful as a fallback
 
 ### Microphone access denied
-- Grant microphone permission in system settings
-- Check if another app is using the microphone exclusively
 
-### Transcription failing
-- Verify your API key is correct in Settings
-- Check your internet connection
-- Groq has rate limits on free tier - wait and retry
+- Grant microphone permission in system settings
+- Check if another application has exclusive microphone access
+
+### Transcription errors
+
+When transcription fails, Wisper plays a buzzer sound, displays the error message in the recording pill for ~3.5 seconds, then dismisses. Nothing is typed. Common messages:
+
+| Message | Likely cause |
+|---------|-------------|
+| `Whisper server unreachable` | Custom server isn't running. Set a **Start Command** in Settings, or start it manually |
+| `Network error` | No internet connection (Groq/OpenAI) |
+| `Bad API key` | API key is missing or invalid — check Settings |
+| `Rate limited` | Hit the provider's rate limit — wait a moment and retry |
+| `Bad endpoint URL` | Custom URL is wrong — it must include the full path, e.g. `/v1/audio/transcriptions` |
+| `Whisper server error` | Server returned 5xx — check the server's own logs |
+
+### Custom server: health check or warm-up failing
+
+- Check `/tmp/wisper.log` for `Health check failed` or `warm-up` entries
+- Confirm the server is running: `curl http://localhost:8080/v1/models`
+- Confirm the model name in Settings matches exactly what the server reports in the models list
+- If auto-start is configured, check that the command works when run manually in a terminal
+
+### Transcription is slow on first recording
+
+This is normal when using a local server — the model needs to be loaded into GPU memory. Wisper sends a warm-up request on first use to trigger this early. If warm-up isn't helping, check `/tmp/wisper.log` for warm-up errors.
+
+### LLM formatting not working
+
+- Ensure the Formatting provider is set (not "Off") in the Formatting tab
+- For Custom: verify the API URL points to a `/v1/chat/completions` endpoint and the model name is correct
+- Check `/tmp/wisper.log` for `LLM post-processing failed` errors
+- The raw transcript is used as fallback if the LLM call fails, so dictation still works
 
 ## License
 
