@@ -61,21 +61,30 @@ export async function transcribeAudioBlob(
   }
 
   const response = await fetch(config.apiUrl, {
-    method: "POST",
-    headers,
-    body: formData,
+      method: "POST",
+      headers,
+      body: formData,
+  }).catch(() => {
+    throw new Error(provider === "custom" ? "whisper server is unreachable" : "network error");
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.error?.message ||
-      `API error ${response.status}: ${response.statusText}${
-        provider === "custom" && (response.status === 404 || response.status === 405)
-          ? ", Did you include the 'v1/audio/transcriptions' endpoint URL?"
-          : ""
-      }`,
-    );
+    const apiMsg: string | undefined = errorData.error?.message;
+    const status = response.status;
+    if (apiMsg) {
+      throw new Error(apiMsg);
+    } else if (status === 401 || status === 403) {
+      throw new Error(`bad ${provider} API key`);
+    } else if (status === 429) {
+      throw new Error("transcription was rate-limited");
+    } else if (provider === "custom" && (status === 404 || status === 405)) {
+      throw new Error("bad whisper URL or model name");
+    } else if (status >= 500) {
+      throw new Error(provider === "custom" ? "whisper server error" : "service-side transcription error");
+    } else {
+      throw new Error(`transcription API error ${status}`);
+    }
   }
 
   const text = await response.text();

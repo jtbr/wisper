@@ -211,13 +211,13 @@ function Settings() {
                   </div>
                   <div>
                     <label className="block text-white/70 text-xs font-medium mb-1">
-                      Start Command <span className="text-white/40">(optional)</span>
+                      Start Command <span className="text-white/40">(optional; runs only on 1st recording, if needed)</span>
                     </label>
                     <input
                       type="text"
                       value={customStartCmd}
                       onChange={persist(setCustomStartCmd, "wisper_custom_start_cmd")}
-                      placeholder="docker compose -f https://raw.githubusercontent.com/speaches-ai/speaches/master/compose.cuda-cdi.yaml --detach"
+                      placeholder="docker compose -f https://github.com/speaches-ai/speaches.git#master:compose.cuda-cdi.yaml up --detach"
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary-500"
                     />
                     <p className="text-white/40 text-xs mt-1">Shell command to start this service if it&apos;s not running</p>
@@ -313,7 +313,7 @@ function Settings() {
                       </div>
                       <div>
                         <label className="block text-white/70 text-xs font-medium mb-1">
-                          Start Command <span className="text-white/40">(optional)</span>
+                          Start Command <span className="text-white/40">(optional; runs only on 1st recording, if needed)</span>
                         </label>
                         <input
                           type="text"

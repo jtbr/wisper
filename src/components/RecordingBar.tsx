@@ -43,7 +43,7 @@ function RecordingBar() {
 
       if (transcript && window.electronAPI) {
         let finalTranscript = transcript;
-        if (llmConfig) {
+        if (llmConfig && !transcript.startsWith("[Error")) {
           try {
             finalTranscript = await postProcessTranscript(transcript, llmConfig);
           } catch (err) {

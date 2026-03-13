@@ -21,9 +21,6 @@ let healthCheckedThisSession = false;
 // Keyed by "baseUrl:kind" (e.g. "http://localhost:8080:transcription")
 const lastWarmupTime = new Map<string, number>();
 
-// Keyed by baseUrl — records when auto-start last ran, so we can delay warm-up
-const lastAutoStartTime = new Map<string, number>();
-
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function getBaseUrl(endpointUrl: string): string {
@@ -140,6 +137,7 @@ async function warmUpLLM(
   }
 }
 
+// attempts to start service using custom command and wait up to 10s for signs of life
 async function tryAutoStart(
   baseUrl: string,
   startCommand: string,
@@ -154,7 +152,6 @@ async function tryAutoStart(
     return;
   }
   log("info", `Auto-start launched (pid=${result.pid}), waiting for service at ${baseUrl}...`);
-  lastAutoStartTime.set(baseUrl, Date.now());
 
   // Poll health for up to 15s (30 × 500ms)
   for (let i = 0; i < 30; i++) {
@@ -217,7 +214,8 @@ export async function ensureCustomServices(log: LogFn): Promise<void> {
   if (!healthCheckedThisSession) {
     healthCheckedThisSession = true;
 
-    // Deduplicate by baseUrl — prefer entries that have a start command
+    // Deduplicate by baseUrl (matching baseUrls mean the same provider; only need to check once)
+    // — prefer the entry that has a start command
     const uniqueByUrl = new Map<string, ServiceInfo>();
     for (const s of services) {
       const existing = uniqueByUrl.get(s.baseUrl);
@@ -226,41 +224,35 @@ export async function ensureCustomServices(log: LogFn): Promise<void> {
       }
     }
 
-    for (const [baseUrl, service] of uniqueByUrl) {
-      const models = await fetchModels(baseUrl, service.apiKey);
-      if (models) {
-        log("info", `Health check OK for ${baseUrl} (${models.data.length} model(s))`);
-        // Warn if the configured model isn't in the list
-        if (service.model) {
+    // run health checks / startup commands concurrently on all service providers
+    await Promise.allSettled(
+      [...uniqueByUrl.entries()].map(async ([baseUrl, service]) => {
+        const models = await fetchModels(baseUrl, service.apiKey);
+        if (models) {
+          log("info", `Health check OK for ${baseUrl} (${models.data.length} model(s))`);
+          // Warn if any configured model for this URL isn't in the list
           const ids = models.data.map((m) => m.id);
-          if (ids.length > 0 && !ids.includes(service.model)) {
-            log(
-              "warn",
-              `Model '${service.model}' not found in models from ${baseUrl} ` +
-                `(available: ${ids.join(", ")}) — this will likely cause a downstream failure`,
-            );
-          }
-        }
-        // Also check the other service sharing this URL, if any
-        for (const s of services) {
-          if (s.baseUrl === baseUrl && s !== service && s.model) {
-            const ids = models.data.map((m) => m.id);
-            if (ids.length > 0 && !ids.includes(s.model)) {
-              log(
-                "warn",
-                `Model '${s.model}' not found in models from ${baseUrl} ` +
-                  `(available: ${ids.join(", ")}) — this will likely cause a downstream failure`,
-              );
+          if (ids.length > 0) {
+            for (const s of services) {
+              if (s.baseUrl === baseUrl && s.model && !ids.includes(s.model)) {
+                log(
+                  "warn",
+                  `Model '${s.model}' not found in models from ${baseUrl} ` +
+                    `(available: ${ids.join(", ")}) — this will likely cause a downstream failure`,
+                );
+              }
             }
           }
+        } else {
+          log(service.startCommand ? "info" : "warn", `Health check failed for ${baseUrl}`);
+          if (service.startCommand) {
+            await tryAutoStart(baseUrl, service.startCommand, log);
+            // be nice and give services another 0.1s to handle requests
+            await new Promise<void>((r) => setTimeout(r, 100));
+          }
         }
-      } else {
-        log(service.startCommand ? "info" : "warn", `Health check failed for ${baseUrl}`);
-        if (service.startCommand) {
-          await tryAutoStart(baseUrl, service.startCommand, log);
-        }
-      }
-    }
+      }),
+    );
   }
 
   // ── Phase 2: Warm-up (rate-limited per service kind) ─────────────────────────
@@ -284,24 +276,10 @@ export async function ensureCustomServices(log: LogFn): Promise<void> {
 
     lastWarmupTime.set(warmupKey, now);
 
-    // If auto-start just ran for this base URL, wait 1.5s before warming up
-    const autoStartedAt = lastAutoStartTime.get(service.baseUrl) ?? 0;
-    const delayMs = now - autoStartedAt < 30000 ? 1500 : 0;
-
     if (service.kind === "transcription") {
-      warmupPromises.push(
-        (async () => {
-          if (delayMs) await new Promise<void>((r) => setTimeout(r, delayMs));
-          await warmUpTranscription(service.baseUrl, service.apiKey, service.model, log);
-        })(),
-      );
+      warmupPromises.push(warmUpTranscription(service.baseUrl, service.apiKey, service.model, log));
     } else {
-      warmupPromises.push(
-        (async () => {
-          if (delayMs) await new Promise<void>((r) => setTimeout(r, delayMs));
-          await warmUpLLM(service.baseUrl, service.apiKey, service.model, log);
-        })(),
-      );
+      warmupPromises.push(warmUpLLM(service.baseUrl, service.apiKey, service.model, log));
     }
   }
 

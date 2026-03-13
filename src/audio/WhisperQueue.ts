@@ -74,7 +74,7 @@ export class WhisperQueue {
       }
       this.onLog?.("error", `Segment ${segmentIndex} transcription failed permanently after ${attempt + 1} attempts: ${msg}`);
       console.error(`Segment ${segmentIndex} transcription failed after ${attempt + 1} attempts:`, err);
-      this.results.set(segmentIndex, "[transcription failed]");
+      this.results.set(segmentIndex, `[Error: ${msg}]`);
     }
 
     this.inFlight--;
