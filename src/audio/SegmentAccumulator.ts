@@ -8,6 +8,7 @@ export class SegmentAccumulator {
   private redemptionCounter = 0;
   private segmentIndex = 0;
   private onFlush: (wavBlob: Blob, segmentIndex: number, durationSec: number) => void;
+  onLog: ((level: "info" | "warn" | "error", message: string) => void) | null = null;
 
   // Debug: retains references to all frames across flushes for full-recording export
   private allFrames: Float32Array[] | null = null;
@@ -106,13 +107,9 @@ export class SegmentAccumulator {
     const idx = this.segmentIndex++;
     this.onFlush(wavBlob, idx, durationSec);
 
-    // If we flushed everything (natural pause), reset fully
+    // If we flushed everything (natural pause), reset current segment
     if (frameCount >= this.frames.length) {
-      this.frames = [];
-      this.scores = [];
-      this.sampleCount = 0;
-      this.wasSpeaking = false;
-      this.redemptionCounter = 0;
+      this.reset(false)
     }
   }
 
@@ -121,16 +118,16 @@ export class SegmentAccumulator {
     if (this.frames.length === 0) return;
 
     const durationSec = this.sampleCount / VAD_CONFIG.sampleRate;
+    const hasSpeech = this.scores.some(
+      (s) => s >= VAD_CONFIG.positiveSpeechThreshold
+    );
 
-    // Check if it's just trailing silence below the minimum duration
-    if (durationSec < VAD_CONFIG.minFinalSegmentDuration) {
-      const hasSpeech = this.scores.some(
-        (s) => s >= VAD_CONFIG.positiveSpeechThreshold
-      );
-      if (!hasSpeech) {
-        this.reset();
-        return;
-      }
+    if (!hasSpeech) {
+      this.onLog?.("info", `flushRemaining: discarding ${durationSec.toFixed(2)}s of trailing silence (no speech detected)`);
+      // Discard this segment but preserve segmentIndex so that totalSegments
+      // still reflects segments already flushed mid-recording
+      this.reset(false);
+      return;
     }
 
     this.flush(this.frames.length);
@@ -147,14 +144,17 @@ export class SegmentAccumulator {
     return SegmentAccumulator.encodeWav(this.allFrames, VAD_CONFIG.sampleRate);
   }
 
-  reset(): void {
+  /* reset the accumulator. if all is false, preserve segmentIndex & allFrames so we don't lose prior segments */
+  reset(all: boolean = true): void {
     this.frames = [];
     this.scores = [];
     this.sampleCount = 0;
     this.wasSpeaking = false;
     this.redemptionCounter = 0;
-    this.segmentIndex = 0;
-    this.allFrames = null;
+    if (all) {
+      this.segmentIndex = 0;
+      this.allFrames = null;
+    }
   }
 
   /** Encode Float32Array PCM frames into a 16-bit WAV blob */

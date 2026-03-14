@@ -204,6 +204,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
           }
         });
         if (debugAudio) accumulator.enableDebug();
+        accumulator.onLog = wlog;
         segmentAccumulatorRef.current = accumulator;
 
         let firstFrameResolve: (() => void) | null = null;

@@ -5,7 +5,6 @@ export const VAD_CONFIG = {
   minSegmentDuration: 15,       // seconds - flush on speech→silence if above this
   maxSegmentDuration: 29.9,     // seconds - forced cut
   hardCutLookback: 15,          // seconds to look back for best cut point
-  minFinalSegmentDuration: 2.0, // seconds - discard trailing silence up to this length
   maxConcurrentRequests: 3,
   retryAttempts: 2,
   retryBaseDelayMs: 1000,
