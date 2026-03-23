@@ -97,7 +97,8 @@ function RecordingBar() {
         }
         setOverlayVisible(false);
         window.electronAPI.hideWindow();
-        window.electronAPI.pasteToCursor(finalTranscript);
+        const outputMethod = (localStorage.getItem("wisper_output_method") || "paste") as OutputMethod;
+        window.electronAPI.outputText(finalTranscript, outputMethod);
       } else if (window.electronAPI) {
         setOverlayVisible(false);
         window.electronAPI.hideWindow();

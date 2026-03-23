@@ -3,6 +3,7 @@
 export {};
 
 declare global {
+  type OutputMethod = "paste" | "type" | "clipboard";
   const __APP_VERSION__: string;
   interface Window {
     electronAPI: {
@@ -11,7 +12,7 @@ declare global {
       setRecordingState: (state: boolean) => void;
       getRecordingState: () => Promise<boolean>;
       copyToClipboard: (text: string) => Promise<boolean>;
-      pasteToCursor: (text: string) => Promise<boolean>;
+      outputText: (text: string, method: OutputMethod) => Promise<boolean>;
       hideWindow: () => Promise<void>;
       resizeWindow: (width: number, height: number) => void;
       onOpenSettings: (callback: () => void) => void;

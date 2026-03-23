@@ -3,7 +3,7 @@ import { LLM_DEFAULT_CUSTOM_URL, LLM_DEFAULT_MODELS, LLM_DEFAULT_SYSTEM_PROMPT }
 
 type Provider = "groq" | "openai" | "custom";
 type LLMProvider = "none" | "groq" | "openai" | "custom";
-type Tab = "transcription" | "llm";
+type Tab = "transcription" | "llm" | "usability";
 
 const SHORTCUT_OPTIONS = [
   "Shift+Space",
@@ -24,6 +24,7 @@ function Settings() {
   const [customModel, setCustomModel] = useState("");
   const [provider, setProvider] = useState<Provider>("groq");
   const [shortcut, setShortcut] = useState("Shift+Space");
+  const [outputMethod, setOutputMethod] = useState<OutputMethod>("paste");
   const [showPassword, setShowPassword] = useState(false);
 
   // LLM post-processing settings
@@ -45,6 +46,7 @@ function Settings() {
     setCustomModel(localStorage.getItem("wisper_custom_model") || "");
     setProvider((localStorage.getItem("wisper_provider") as Provider) || "groq");
     setShortcut(localStorage.getItem("wisper_shortcut") || "Shift+Space");
+    setOutputMethod((localStorage.getItem("wisper_output_method") as OutputMethod) || "paste");
     setLlmProvider((localStorage.getItem("wisper_llm_provider") as LLMProvider) || "none");
     setLlmModelGroq(localStorage.getItem("wisper_llm_model_groq") || "");
     setLlmModelOpenai(localStorage.getItem("wisper_llm_model_openai") || "");
@@ -85,6 +87,11 @@ function Settings() {
   const handleLlmProviderChange = (newProvider: LLMProvider) => {
     setLlmProvider(newProvider);
     localStorage.setItem("wisper_llm_provider", newProvider);
+  };
+
+  const handleOutputMethodChange = (method: OutputMethod) => {
+    setOutputMethod(method);
+    localStorage.setItem("wisper_output_method", method);
   };
 
   const handleShortcutChange = (newShortcut: string) => {
@@ -131,6 +138,17 @@ function Settings() {
             }`}
           >
             Formatting
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("usability")}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              tab === "usability"
+                ? "bg-white/10 text-white"
+                : "text-white/50 hover:text-white/70"
+            }`}
+          >
+            Usability
           </button>
         </div>
 
@@ -224,6 +242,39 @@ function Settings() {
                   </div>
                 </>
               )}
+            </div>
+
+          </div>
+        )}
+
+        {/* Usability tab */}
+        {tab === "usability" && (
+          <div className="space-y-3">
+            <div className="p-3 bg-white/5 rounded-xl border border-white/5 space-y-2">
+              <label className="block text-white/70 text-xs font-medium">
+                Output
+              </label>
+              <div className="flex gap-2">
+                {(["paste", "type", "clipboard"] as OutputMethod[]).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => handleOutputMethodChange(m)}
+                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                      outputMethod === m
+                        ? "bg-primary-500 text-white"
+                        : "bg-white/5 text-white/60 hover:bg-white/10"
+                    }`}
+                  >
+                    {m.charAt(0).toUpperCase() + m.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <p className="text-white/40 text-xs">
+                {outputMethod === "paste" && "Text is pasted instantly via the clipboard. Works in terminals and GUI apps. Avoids unexpected results."}
+                {outputMethod === "type" && "Characters typed one-by-one. Slower, but you can read the text as it appears."}
+                {outputMethod === "clipboard" && "Text is copied to clipboard. You paste manually."}
+              </p>
             </div>
 
             <div className="p-3 bg-white/5 rounded-xl border border-white/5">

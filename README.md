@@ -1,11 +1,11 @@
 # Wisper
 
-Wisper is a WisprFlow-like voice dictation application for Linux. It provides seamless voice-to-text integration using AI transcription, allowing you to dictate anywhere and have text typed directly at your cursor.
+Wisper is a WisprFlow-like voice dictation application for Linux. It provides seamless voice-to-text integration using AI transcription, allowing you to dictate anywhere and have text delivered instantly to your cursor.
 
 ## Features
 
 - **Global Hotkey** - Press hotkey to start/stop recording from anywhere
-- **Direct Text Input** - Transcribed text is typed directly at your cursor (no copy-paste needed)
+- **Flexible Output** - Choose how transcribed text is delivered: **Paste** (default, instant, clipboard-based), **Type** (character-by-character via ydotool), or **Clipboard** (copy only, paste manually)
 - **AI Transcription** - Transcribe audio using OpenAI Whisper via Groq, OpenAI, or any compatible local/custom endpoint
 - **Unlimited Recording Length** - Voice Activity Detection (VAD) segments long dictations at natural pauses; each segment is sent to Whisper concurrently, so there is no time limit on recordings
 - **LLM Formatting Pass** - Optional post-processing by an LLM to fix punctuation, remove filler words, and clean up speech artefacts
@@ -21,7 +21,7 @@ Wisper is a WisprFlow-like voice dictation application for Linux. It provides se
 - Linux (Debian/Ubuntu 22.04+)
 - Microphone access
 - Internet connection (for cloud API calls) or a local model server
-- **ydotool** - Used for direct text input (install instructions below)
+- **ydotool** - Required for **Paste** (default) and **Type** output modes (install instructions below); not needed for **Clipboard** mode
 - **Wayland users**: Need to set up custom keyboard shortcut (see Wayland Setup below)
 
 ## Installation
@@ -87,14 +87,18 @@ Download the latest `.AppImage` or `.deb` package from the [Releases](https://gi
    - **Custom**: Any OpenAI transcription-API-compatible endpoint (e.g. locally-served)
 3. Enter your API key (optional for custom)
 4. Optionally configure a **Formatting** (LLM) provider for post-processing
-5. Choose Wisper's *hotkey* (`Shift-Space` by default)
+5. On the **Usability** tab, choose your **Output** method (default: **Paste**):
+   - **Paste**: Text is pasted instantly via clipboard — works in terminals and GUI apps, atomic, no cursor-move corruption
+   - **Type**: Characters typed one-by-one via ydotool — slower, lets you watch text appear as it's written
+   - **Clipboard**: Text is copied to clipboard only — paste manually with Ctrl+V; no ydotool required
+6. On the **Usability** tab, choose Wisper's *hotkey* (`Shift-Space` by default)
 
 ### Recording
 
 1. Press your *hotkey* to start recording (bar appears)
 2. When the chime sounds and the bar turns red, **speak into your microphone** — there is no time limit
 3. Press your *hotkey* again to stop — a second chime plays and a thinking indicator appears while your speech is transcribed
-4. Text is typed directly at your cursor location
+4. Text is delivered to your cursor — pasted instantly by default (see Output mode in Settings)
 
 ### System Tray
 
@@ -171,7 +175,8 @@ If you don't already have `speaches`, but you have `docker compose` you can set 
 | API URL | Transcription tab (Custom) | Full transcription endpoint URL |
 | Model name | Transcription tab (Custom) | Model identifier as the server expects |
 | Start Command | Transcription tab (Custom) | Shell command to launch the server if not running (e.g. `speaches serve`) |
-| Shortcut | Transcription tab | Global hotkey |
+| Output | Usability tab | How text is delivered: `Paste` (default), `Type`, or `Clipboard` |
+| Shortcut | Usability tab | Global hotkey |
 | Formatting provider | Formatting tab | None, Groq, OpenAI, or Custom |
 | Language Model | Formatting tab | LLM model name |
 | API URL | Formatting tab (Custom) | Full chat completions endpoint URL |
@@ -196,6 +201,8 @@ pnpm run package          # Create distributables (.AppImage, .deb)
 Wisper logs to `/tmp/wisper.log`. When something goes wrong, check there first.
 
 ### Text not being typed / ydotool not working
+
+If you're using **Paste** (default) or **Type** output mode, Wisper depends on ydotool. Switch to **Clipboard** mode in Settings to eliminate this dependency entirely (you will need to paste the result yourself)
 
 - Test manually: `ydotool type "hello"` — the word should appear in your terminal
 - Ensure ydotool is installed and the daemon (`ydotoold`) is running

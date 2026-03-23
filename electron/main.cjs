@@ -235,23 +235,75 @@ ipcMain.handle("copy-to-clipboard", async (event, text) => {
   return true;
 });
 
-ipcMain.handle("paste-to-cursor", async (event, text) => {
+function saveClipboard() {
+  const saved = {};
+  const formats = clipboard.availableFormats();
+  if (formats.some(f => f.startsWith('text/plain'))) saved.text = clipboard.readText();
+  if (formats.some(f => f.startsWith('text/html'))) saved.html = clipboard.readHTML();
+  if (formats.some(f => f.startsWith('image/'))) saved.image = clipboard.readImage();
+  if (formats.some(f => f.startsWith('text/rtf'))) saved.rtf = clipboard.readRTF();
+
+  const selSaved = {};
+  const selFormats = clipboard.availableFormats('selection');
+  if (selFormats.some(f => f.startsWith('text/plain'))) selSaved.text = clipboard.readText('selection');
+  if (selFormats.some(f => f.startsWith('text/html'))) selSaved.html = clipboard.readHTML('selection');
+  if (selFormats.some(f => f.startsWith('image/'))) selSaved.image = clipboard.readImage('selection');
+  if (selFormats.some(f => f.startsWith('text/rtf'))) selSaved.rtf = clipboard.readRTF('selection');
+
+  return { clipboard: saved, selection: selSaved };
+}
+
+function restoreClipboard(saved) {
+  if (Object.keys(saved.clipboard).length > 0) clipboard.write(saved.clipboard);
+  if (Object.keys(saved.selection).length > 0) clipboard.write(saved.selection, 'selection');
+}
+
+ipcMain.handle("output-text", async (event, text, method) => {
   const { execSync } = require("child_process");
 
+  if (!text) {
+    log('info', 'output-text: no text to output');
+    return true;
+  }
+
+  async function doPaste() {
+    const saved = saveClipboard();
+    clipboard.writeText(text);
+    clipboard.writeText(text, 'selection');
+    await new Promise(resolve => setTimeout(resolve, 250));
+    try {
+      execSync('ydotool key --key-delay 20 42:1 110:1 110:0 42:0', { timeout: 5000, stdio: 'ignore' });
+    } catch (err) {
+      log('error', `output-text paste key simulation failed: ${err.message}`);
+    }
+    await new Promise(resolve => setTimeout(resolve, 200));
+    restoreClipboard(saved);
+  }
+
   try {
-    const tempFile = '/tmp/wisper-text.txt';
-    require('fs').writeFileSync(tempFile, text);
-    if (text) {
-      // Wait for the window to hide and the OS to return focus to the target app
-      await new Promise(resolve => setTimeout(resolve, 250));
-      const timeout = Math.max(5000, text.length * 50);
-      // key delay (how fast the text is written) may be something worth exposing to the user
-      execSync(`ydotool type --delay 100 --key-delay 15 --file ${tempFile}`, { timeout, stdio: 'ignore' });
-    } else {
-      log('info', 'no output to paste')
+    switch (method) {
+      case "paste":
+        await doPaste();
+        break;
+      case "type": {
+        const tempFile = '/tmp/wisper-text.txt';
+        fs.writeFileSync(tempFile, text);
+        await new Promise(resolve => setTimeout(resolve, 250));
+        const timeout = Math.max(5000, text.length * 50);
+        // Note: Previously we used a --delay 100 to give time for the OS focus to return to the target app; seems no longer needed (?)
+        execSync(`ydotool type --key-delay 15 --file ${tempFile}`, { timeout, stdio: 'ignore' });
+        break;
+      }
+      case "clipboard":
+        clipboard.writeText(text);
+        clipboard.writeText(text, 'selection');
+        break;
+      default:
+        log('warn', `output-text: unknown method "${method}", falling back to paste`);
+        await doPaste();
     }
   } catch (err) {
-    log('error', `paste-to-cursor failed: ${err.message}`);
+    log('error', `output-text (${method}) failed: ${err.message}`);
   }
   return true;
 });

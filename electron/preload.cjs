@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Clipboard
   copyToClipboard: (text) => ipcRenderer.invoke("copy-to-clipboard", text),
-  pasteToCursor: (text) => ipcRenderer.invoke("paste-to-cursor", text),
+  outputText: (text, method) => ipcRenderer.invoke("output-text", text, method),
 
   // Window control
   hideWindow: () => ipcRenderer.invoke("hide-window"),
