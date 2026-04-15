@@ -12,6 +12,7 @@ const {
 const localShortcut = require("electron-localshortcut");
 const path = require("path");
 const { exec } = require("child_process");
+const waylandShortcut = require("./waylandShortcut.cjs");
 const fs = require("fs");
 const os = require("os");
 
@@ -30,6 +31,7 @@ function log(level, message) {
   fs.appendFileSync(LOG_FILE, line);
   if (isDev) console.log(line.trimEnd());
 }
+waylandShortcut.init(log);
 
 app.commandLine.appendSwitch("disable-gpu-compositing");
 app.commandLine.appendSwitch("enable-accelerated-2d-canvas");
@@ -39,20 +41,28 @@ try {
   isWayland = process.env.XDG_SESSION_TYPE === "wayland";
 } catch (e) {}
 
+if (isWayland) {
+  // Enable XDG GlobalShortcuts portal so globalShortcut works on Wayland
+  // via the desktop environment (KDE, GNOME 48+).
+  app.commandLine.appendSwitch("enable-features", "GlobalShortcutsPortal");
+}
+
 async function registerShortcut(shortcut) {
-  if (!isWayland) {
-    globalShortcut.unregisterAll();
-    try {
-      await globalShortcut.register(shortcut, () => {
-        toggleRecording();
-      });
-    } catch {}
-  } else if (mainWindow) {
-    localShortcut.unregisterAll(mainWindow);
-    localShortcut.register(mainWindow, shortcut, () => {
-      toggleRecording();
-    });
+  globalShortcut.unregisterAll();
+  if (isWayland && mainWindow) localShortcut.unregisterAll(mainWindow);
+
+  try {
+    await globalShortcut.register(shortcut, () => { toggleRecording(); });
+  } catch (e) {}
+
+  if (isWayland) {
+    if (!globalShortcut.isRegistered(shortcut)) {
+      // Global Shortcuts Portal not available — fall back to window-local shortcut and prompt for DE setup
+      if (mainWindow) localShortcut.register(mainWindow, shortcut, () => { toggleRecording(); });
+      waylandShortcut.check(shortcut);
+    }
   }
+
   currentShortcut = shortcut;
   updateTrayMenu();
 }
