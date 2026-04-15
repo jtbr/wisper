@@ -45,25 +45,23 @@ const cards = targets
     const m = META[t.toLowerCase()];
     if (!f || !m) { console.warn(`Unknown target "${t}", skipping.`); return null; }
     return [
-      `            <div class="download-card">`,
-      `              <h3>${m.title}</h3>`,
-      `              <p>${m.desc}</p>`,
-      `              <a`,
-      `                href="${BASE}/${f}"`,
-      `                class="download-btn"`,
-      `              >`,
-      `                ${m.btn}<small>v${version}</small>`,
-      `              </a>`,
-      `            </div>`,
+      `						<div class="download-card">`,
+      `							<h3>${m.title}</h3>`,
+      `							<p>${m.desc}</p>`,
+      `							<a href="${BASE}/${f}"`,
+      `								class="download-btn">`,
+      `								${m.btn}<small>v${version}</small>`,
+      `							</a>`,
+      `						</div>`,
     ].join('\n');
   })
   .filter(Boolean)
   .join('\n');
 
 const grid = [
-  `          <div class="download-grid">`,
+  `				<div class="download-grid">`,
   cards,
-  `          </div>`,
+  `				</div>`,
 ].join('\n');
 
 const MARKER_START = '<!-- DOWNLOAD-CARDS-START -->';

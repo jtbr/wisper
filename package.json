@@ -12,7 +12,7 @@
     "build": "tsc && vite build",
     "electron": "electron . --no-sandbox",
     "electron:dev": "pnpm run copy-vad-assets && trap 'exit 0' INT TERM; concurrently --kill-others --success first 'vite' 'wait-on http://localhost:5173 && electron . --no-sandbox'",
-    "package": "pnpm run build && electron-builder --linux"
+    "package": "pnpm run build && electron-builder --linux AppImage deb rpm"
   },
   "keywords": [
     "voice",
@@ -45,7 +45,8 @@
       "target": [
         "AppImage",
         "deb",
-        "rpm"
+        "rpm",
+        "pacman"
       ],
       "icon": "assets/icon.png",
       "category": "Utility",
