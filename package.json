@@ -1,9 +1,9 @@
 {
   "name": "wisper",
-  "version": "2.2.0",
+  "version": "3.0.0",
   "description": "WisprFlow-like voice dictation app for Ubuntu",
   "main": "electron/main.cjs",
-  "homepage": "https://github.com/taraksh01/wisper",
+  "homepage": "https://github.com/jtbr/wisper",
   "type": "module",
   "scripts": {
     "copy-vad-assets": "bash scripts/copy-vad-assets.sh",
@@ -20,7 +20,7 @@
     "whisper",
     "speech-to-text"
   ],
-  "author": "Tarak Shaw",
+  "author": "Justin Briggs",
   "license": "MIT",
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.18",
@@ -49,7 +49,7 @@
       ],
       "icon": "assets/icon.png",
       "category": "Utility",
-      "maintainer": "Tarak Shaw <taraksh01@gmail.com>"
+      "maintainer": "Justin Briggs <jtbr@users.noreply.github.com>"
     },
     "deb": {
       "afterInstall": "scripts/postinstall.sh",

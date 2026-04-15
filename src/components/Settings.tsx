@@ -23,7 +23,7 @@ function Settings() {
   const [customUrl, setCustomUrl] = useState("");
   const [customModel, setCustomModel] = useState("");
   const [provider, setProvider] = useState<Provider>("groq");
-  const [shortcut, setShortcut] = useState("Shift+Space");
+  const [shortcut, setShortcut] = useState("Ctrl+Alt+Space");
   const [shortcutMode, setShortcutMode] = useState<"native" | "gsettings" | "manual">("native");
   const [outputMethod, setOutputMethod] = useState<OutputMethod>("paste");
   const [showPassword, setShowPassword] = useState(false);
@@ -46,7 +46,7 @@ function Settings() {
     setCustomUrl(localStorage.getItem("wisper_custom_url") || "");
     setCustomModel(localStorage.getItem("wisper_custom_model") || "");
     setProvider((localStorage.getItem("wisper_provider") as Provider) || "groq");
-    setShortcut(localStorage.getItem("wisper_shortcut") || "Shift+Space");
+    setShortcut(localStorage.getItem("wisper_shortcut") || "Ctrl+Alt+Space");
     setOutputMethod((localStorage.getItem("wisper_output_method") as OutputMethod) || "paste");
     setLlmProvider((localStorage.getItem("wisper_llm_provider") as LLMProvider) || "none");
     setLlmModelGroq(localStorage.getItem("wisper_llm_model_groq") || "");

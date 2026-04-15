@@ -19,7 +19,7 @@ let mainWindow = null;
 let settingsWindow = null;
 let tray = null;
 let isRecording = false;
-let currentShortcut = "Shift+Space";
+let currentShortcut = "Ctrl+Alt+Space";
 let lastTranscript = null;
 
 const isDev = !app.isPackaged;
@@ -54,7 +54,7 @@ async function registerShortcut(shortcut) {
   } catch (e) {}
 
   // On Wayland without portal support, globalShortcut does nothing.
-  // Prompt the user to configure a DE-level shortcut instead.
+  // Prompt the user to configure a desktop environment shortcut instead.
   if (isWayland && waylandShortcut.needsFallback()) {
     waylandShortcut.check(shortcut);
   }
@@ -409,12 +409,21 @@ function checkUinputAccess() {
   });
 }
 
+// Single-instance toggle: on Wayland without portal support (GNOME < 48, wlroots compositors),
+// the global hotkey is a manual desktop env. keyboard shortcut that simply re-launches Wisper.
+// The new instance fails to acquire the lock, logs the toggle, and quits immediately.
+// The running instance receives "second-instance" and toggles recording.
+// On X11 and portal-capable Wayland (KDE, GNOME 48+) this path is not used for the hotkey,
+// but re-running Wisper manually will still toggle recording as a convenient fallback.
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
+  // We are the second instance — signal the first instance to toggle and exit.
+  log("info", "Signalling running instance to toggle recording and quitting");
   app.quit();
 } else {
   app.on("second-instance", () => {
+    log("info", "Received second-instance signal: toggling recording");
     if (mainWindow) {
       toggleRecording();
     }

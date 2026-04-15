@@ -135,7 +135,7 @@ function RecordingBar() {
       });
 
       const savedShortcut =
-        localStorage.getItem("wisper_shortcut") || "Shift+Space";
+        localStorage.getItem("wisper_shortcut") || "Ctrl+Alt+Space";
       window.electronAPI.updateShortcut(savedShortcut);
 
       return () => {

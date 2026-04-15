@@ -33,7 +33,7 @@ function getGnomeMajorVersion() {
   return _gnomeMajorVersion;
 }
 
-// Returns true when the portal is unavailable and a DE-level fallback is needed.
+// Returns true when the portal is unavailable and a manual desktop environment fallback is needed.
 // KDE and GNOME 48+ have working portals; everything else does not.
 function needsFallback() {
   if (isKde) return false;
