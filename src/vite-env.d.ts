@@ -16,6 +16,7 @@ declare global {
       hideWindow: () => Promise<void>;
       resizeWindow: (width: number, height: number) => void;
       onOpenSettings: (callback: () => void) => void;
+      onNavigateTab: (callback: (event: unknown, tab: string) => void) => void;
       updateShortcut: (shortcut: string) => Promise<boolean>;
       getShortcutMode: () => Promise<"native" | "gsettings" | "manual">;
       removeAllListeners: (channel: string) => void;

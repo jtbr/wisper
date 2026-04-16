@@ -14,7 +14,10 @@ const SHORTCUT_OPTIONS = [
 ]; // Note: ScrollLock, Super key, and ContextMenu key combos don't work
 
 function Settings() {
-  const [tab, setTab] = useState<Tab>("transcription");
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    return t === "transcription" || t === "llm" || t === "usability" ? t : "transcription";
+  });
 
   // Transcription settings
   const [groqKey, setGroqKey] = useState("");
@@ -58,6 +61,14 @@ function Settings() {
     setCustomStartCmd(localStorage.getItem("wisper_custom_start_cmd") || "");
     setLlmCustomStartCmd(localStorage.getItem("wisper_llm_custom_start_cmd") || "");
     window.electronAPI?.getShortcutMode().then(setShortcutMode);
+
+    const handleNavigateTab = (_event: unknown, newTab: string) => {
+      if (newTab === "transcription" || newTab === "llm" || newTab === "usability") {
+        setTab(newTab);
+      }
+    };
+    window.electronAPI?.onNavigateTab(handleNavigateTab);
+    return () => { window.electronAPI?.removeAllListeners("navigate-tab"); };
   }, []);
 
   const currentKey = provider === "groq" ? groqKey : provider === "openai" ? openaiKey : customKey;

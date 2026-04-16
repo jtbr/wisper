@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Settings
   onOpenSettings: (callback) => ipcRenderer.on("open-settings", callback),
+  onNavigateTab: (callback) => ipcRenderer.on("navigate-tab", callback),
   updateShortcut: (shortcut) => ipcRenderer.invoke("update-shortcut", shortcut),
   getShortcutMode: () => ipcRenderer.invoke("get-shortcut-mode"),
 

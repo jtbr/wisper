@@ -139,12 +139,11 @@ function check(shortcut) {
     dialog.showMessageBox({
       type: 'info',
       title: 'Wayland global shortcut',
-      message: 'Global shortcut setup needed',
+      message: 'Manual shortcut setup needed',
       detail:
         `To use "${shortcut}" from any app, add a custom keyboard shortcut in your ` +
         `desktop environment's settings with this command:\n\n` +
-        `  ${process.env.APPIMAGE || app.getPath('exe')}\n\n` +
-        `The shortcut works when the Wisper window is focused in the meantime.`,
+        `  ${process.env.APPIMAGE || app.getPath('exe')}\n\n`,
       buttons: ['OK'],
     });
   }

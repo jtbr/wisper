@@ -187,8 +187,9 @@ function createWindow() {
   });
 }
 
-function createSettingsWindow() {
+function createSettingsWindow(tab = null) {
   if (settingsWindow) {
+    if (tab) settingsWindow.webContents.send("navigate-tab", tab);
     settingsWindow.focus();
     return;
   }
@@ -213,9 +214,12 @@ function createSettingsWindow() {
   });
 
   if (isDev) {
-    settingsWindow.loadURL("http://localhost:5173/settings.html");
+    settingsWindow.loadURL(`http://localhost:5173/settings.html${tab ? `?tab=${tab}` : ""}`);
   } else {
-    settingsWindow.loadFile(path.join(__dirname, "../dist/settings.html"));
+    settingsWindow.loadFile(
+      path.join(__dirname, "../dist/settings.html"),
+      tab ? { query: { tab } } : {}
+    );
   }
 
   settingsWindow.on("closed", () => {
@@ -390,22 +394,28 @@ function checkUinputAccess() {
   // Not accessible: show guidance
   try { fs.writeFileSync(warnedFlag, ""); } catch (e) {}
 
+  const udevCmd = `echo 'KERNEL=="uinput", TAG+="uaccess", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"' | sudo tee /etc/udev/rules.d/80-uinput.rules`;
+  const reloadCmd = `sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=uinput`;
+
   dialog.showMessageBox({
     type: "warning",
-    title: "ydotool setup needed",
+    title: "Setup needed for ydotool",
     message: "/dev/uinput is not accessible",
     detail:
-      "Wisper uses ydotool to paste text, which requires write access to /dev/uinput.\n\n" +
-      "Run these two commands in a terminal:\n\n" +
-      "  echo 'KERNEL==\"uinput\", TAG+=\"uaccess\", GROUP=\"input\", MODE=\"0660\", OPTIONS+=\"static_node=uinput\"' " +
-      "| sudo tee /etc/udev/rules.d/80-uinput.rules\n\n" +
-      "  sudo udevadm control --reload-rules && sudo udevadm trigger\n\n" +
-      "On systemd-based systems this takes effect immediately.\n" +
-      "Alternatively, switch to Clipboard mode in Settings (paste manually with Ctrl+V).",
-    buttons: ["OK", "Open Settings"],
+      "Wisper uses ydotool to paste text, which requires\nwrite access to /dev/uinput.\n\n" +
+      "To give permission, run these two commands in a\nterminal (click 'Copy commands' to copy them):\n\n" +
+      `~~~~\n${udevCmd}\n\n` +
+      `${reloadCmd}\n~~~~\n\n` +
+      "On systemd-based systems this takes effect immediately.\n\n" +
+      "Alternatively, switch to Clipboard mode in Settings\n(then you paste manually with Ctrl+V).\n",
+    buttons: ["OK", "Copy commands", "Open Settings"],
     defaultId: 0,
   }).then(({ response }) => {
-    if (response === 1) createSettingsWindow();
+    if (response === 1) {
+      clipboard.writeText(`${udevCmd}\n${reloadCmd}`);
+    } else if (response === 2) {
+      createSettingsWindow("usability");
+    }
   });
 }
 
