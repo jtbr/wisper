@@ -101,7 +101,7 @@ jobs:
           retention-days: 7
 
   arch-build:
-    name: Build Arch Packages (AppImage / .pkg.tar.zst)
+    name: Build Arch Packages (AppImage / .pacman)
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
@@ -137,7 +137,7 @@ jobs:
           name: arch-packages
           path: |
             release/*.AppImage
-            release/*.pkg.tar.zst
+            release/*.pacman
           if-no-files-found: error
           retention-days: 7
 
@@ -195,7 +195,7 @@ jobs:
           path: release/
 
       - name: Generate SHA256 checksums
-        run: sha256sum release/*.AppImage release/*.deb release/*.rpm release/*.pkg.tar.zst > release/SHA256SUMS.txt
+        run: sha256sum release/*.AppImage release/*.deb release/*.rpm release/*.pacman > release/SHA256SUMS.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2

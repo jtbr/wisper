@@ -30,7 +30,7 @@ This is an independent, actively maintained fork of [taraksh01/wisper](https://g
 - Microphone access
 - Internet connection (for cloud API calls) or a local Whisper server (see below)
 - **ydotool** — Required for **Paste** (default) and **Type** output modes; not needed for **Clipboard** mode
-  - `.deb` / `.rpm` / `.pkg.tar.zst` installs: ydotool is installed automatically as a package dependency
+  - `.deb` / `.rpm` / `.pacman` installs: ydotool is installed automatically as a package dependency
   - AppImage: install ydotool manually (see below)
 
 ## Installation
@@ -42,7 +42,7 @@ Download the latest release from the [Releases](https://github.com/jtbr/wisper/r
 ```bash
 sudo apt install ./wisper_*.deb          # Debian / Ubuntu / Mint
 sudo dnf install ./wisper-*.rpm          # Fedora / RHEL
-sudo pacman -U wisper-*.pkg.tar.zst      # Arch / Manjaro / etc
+sudo pacman -U wisper-*.pacman           # Arch / Manjaro / etc
 ```
 
 To verify your download against the [SHA256 checksums](https://github.com/jtbr/wisper/releases/latest/download/SHA256SUMS.txt):
@@ -51,7 +51,7 @@ To verify your download against the [SHA256 checksums](https://github.com/jtbr/w
 sha256sum -c SHA256SUMS.txt --ignore-missing
 ```
 
-The `.deb`, `.rpm`, and `.pkg.tar.zst` packages automatically:
+The `.deb`, `.rpm`, and `.pacman` packages automatically:
 - Install ydotool as a dependency
 - Configure `/dev/uinput` access (required by ydotool) via a udev rule — no manual steps or re-login needed
 
@@ -222,9 +222,9 @@ Wisper logs to `/tmp/wisper.log`. When something goes wrong, check there first.
 If you're using **Paste** (default) or **Type** output mode, Wisper depends on ydotool. Switch to **Clipboard** mode in Settings to eliminate this dependency entirely (you will need to paste the result yourself).
 
 - Test manually: `ydotool type "hello"` — the word should appear in your terminal
-- Ensure ydotool is installed (`.deb`/`.rpm`/`.pkg.tar.zst` installs it automatically; AppImage users need to install it manually)
+- Ensure ydotool is installed (`.deb`/`.rpm`/`.pacman` installs it automatically; AppImage users need to install it manually)
 - Ensure the daemon (`ydotoold`) is running — running it as a user systemd service is recommended (see [Install ydotool](#install-ydotool-appimage-only))
-- **`/dev/uinput` not accessible**: `.deb`/`.rpm`/`.pkg.tar.zst` installs configure this automatically via a udev rule. AppImage users will see a one-time setup dialog on first use; follow the instructions shown, or run:
+- **`/dev/uinput` not accessible**: `.deb`/`.rpm`/`.pacman` installs configure this automatically via a udev rule. AppImage users will see a one-time setup dialog on first use; follow the instructions shown, or run:
   ```bash
   echo 'KERNEL=="uinput", TAG+="uaccess", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"' \
     | sudo tee /etc/udev/rules.d/80-uinput.rules
@@ -282,7 +282,7 @@ Cross-format building is supported with native system tools:
 |------|-------------|--------|
 | Ubuntu / Debian | `sudo apt install rpm fakeroot` | AppImage, .deb, .rpm |
 | Fedora / RHEL | `sudo dnf install dpkg fakeroot` | AppImage, .deb, .rpm |
-| Arch Linux | *(none — base-devel sufficient)* | AppImage, .pkg.tar.zst |
+| Arch Linux | *(none — base-devel sufficient)* | AppImage, .pacman |
 
 ```bash
 # Production
@@ -290,7 +290,7 @@ pnpm run build            # Build React app
 pnpm run package          # Create distributables for all targets supported on this host
 ```
 
-The `.pkg.tar.zst` package is built in CI using an Arch Linux container and is not cross-buildable from other distributions.
+The `.pacman` package is built in CI using an Arch Linux container and is not cross-buildable from other distributions.
 
 ### Testing
 
