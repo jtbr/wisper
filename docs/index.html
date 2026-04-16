@@ -368,17 +368,28 @@
 
 			.section-header p {
 				color: var(--text-secondary);
-				max-width: 600px;
+				max-width: 650px;
 				margin: 0 auto;
 			}
 
-			.section-header p a {
-				color: var(--text-secondary);
+			/* Inline text links in body copy */
+			.section-header p a,
+			.step-content p a,
+			.checksums-note a {
+				color: var(--primary-light);
 				text-decoration: underline;
+				transition: color 0.2s;
 			}
 
-			.section-header p a:hover {
+			.section-header p a:hover,
+			.step-content p a:hover,
+			.checksums-note a:hover {
 				color: var(--text);
+			}
+
+			.download p a,
+			.download a {
+				color: var(--text-secondary);
 			}
 
 			.features-grid {
@@ -567,15 +578,6 @@
 				font-size: 0.875rem;
 			}
 
-			.step-content p a {
-				color: var(--primary-light);
-				text-decoration: underline;
-			}
-
-			.step-content p a:hover {
-				color: var(--text);
-			}
-
 			.api-links {
 				display: flex;
 				gap: 0.75rem;
@@ -714,15 +716,6 @@
 				text-align: center;
 				font-size: 0.85rem;
 				color: var(--text-muted);
-			}
-
-			.checksums-note a {
-				color: var(--text-secondary);
-				text-decoration: underline;
-			}
-
-			.checksums-note a:hover {
-				color: var(--text);
 			}
 
 			.checksums-note code {
@@ -1262,7 +1255,7 @@
 							<div class="step-content">
 								<h3>Choose a Transcription Provider</h3>
 								<p>Pick a cloud provider and get an API key, or run a local server for total privacy
-									(<a href="https://github.com/jtbr/wisper/blob/main/local-models.md" target="_blank" rel="noopener">more details</a>):</p>
+									(<a href="local-models" target="_blank" rel="noopener">more details</a>):</p>
 								<div class="api-links">
 									<a
 										href="https://console.groq.com/keys"
@@ -1361,6 +1354,17 @@
 					</p>
 				</div>
 			</section>
+
+		<section class="readme-note">
+			<div class="container">
+				<div class="section-header">
+				<p>For full documentation, configuration details, and troubleshooting, see the
+					<a href="https://github.com/jtbr/wisper/blob/main/README.md" target="_blank" rel="noopener">README</a>.
+				</p>
+				</div>
+			</div>
+		</section>
+
 		</main>
 
 		<footer>

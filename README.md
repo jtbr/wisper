@@ -21,7 +21,7 @@ This is an independent, actively maintained fork of [taraksh01/wisper](https://g
 - **Minimal UI** - Slim, transparent recording bar with real-time audio waveform
 - **System Tray** - Quick access to settings and app controls
 - **Wayland & X11 Support** - Works on both display servers
-- **Privacy First** - Records locally before sending to API. Both the transcription and formatting endpoints can be local for *total privacy* — see [Using Local Models](local-models.md)
+- **Privacy First** - Records locally before sending to API. Both the transcription and formatting endpoints can be local for *total privacy* — see [Using Local Models](docs/local-models.md)
 - **Auto-start & Warm-up** - Wisper can start local servers automatically on first use and pre-load models into GPU memory to reduce first-request latency
 
 ## Requirements
@@ -181,7 +181,7 @@ To have Wisper start automatically when you log in:
 | **OpenAI** | `whisper-1` | Paid | [platform.openai.com](https://platform.openai.com/api-keys) |
 | **Custom** | Any OpenAI-compatible transcriptions endpoint | Free if local | — |
 
-For the **Custom** provider, set the full endpoint URL (e.g. `http://localhost:8000/v1/audio/transcriptions`) and the model name as the server expects it. See [Using Local Models](local-models.md) for setup guides and recommended options.
+For the **Custom** provider, set the full endpoint URL (e.g. `http://localhost:8000/v1/audio/transcriptions`) and the model name as the server expects it. See [Using Local Models](docs/local-models.md) for setup guides and recommended options.
 
 ### LLM Formatting (optional)
 
@@ -193,7 +193,7 @@ After transcription, Wisper can send the raw transcript to an LLM to clean it up
 | **OpenAI** | `gpt-4.1-mini` | Paid | Uses your OpenAI API key from the transcription tab |
 | **Custom** | — | Free if local | Default URL: `http://localhost:11434/v1/chat/completions` ([ollama](https://ollama.com)) |
 
-For the **Custom** provider, see [Using Local Models](local-models.md) for setup, model recommendations, and auto-start configuration.
+For the **Custom** provider, see [Using Local Models](docs/local-models.md) for setup, model recommendations, and auto-start configuration.
 
 ### Settings Reference
 
@@ -259,7 +259,7 @@ When transcription fails, Wisper plays a buzzer sound, displays the error messag
 
 ### Custom server: health check, warm-up, or slow first transcription
 
-See [Using Local Models — Troubleshooting](local-models.md#troubleshooting).
+See [Using Local Models — Troubleshooting](docs/local-models.md#troubleshooting).
 
 ### LLM formatting not working
 

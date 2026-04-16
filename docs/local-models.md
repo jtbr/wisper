@@ -1,3 +1,7 @@
+---
+title: Using Local Models — Wisper
+---
+
 # Using Local Models with Wisper
 
 Running Wisper entirely locally gives you:
