@@ -52,8 +52,8 @@ function Settings() {
     setShortcut(localStorage.getItem("wisper_shortcut") || "Ctrl+Alt+Space");
     setOutputMethod((localStorage.getItem("wisper_output_method") as OutputMethod) || "paste");
     setLlmProvider((localStorage.getItem("wisper_llm_provider") as LLMProvider) || "none");
-    setLlmModelGroq(localStorage.getItem("wisper_llm_model_groq") || "");
-    setLlmModelOpenai(localStorage.getItem("wisper_llm_model_openai") || "");
+    setLlmModelGroq(localStorage.getItem("wisper_llm_model_groq") || LLM_DEFAULT_MODELS.groq);
+    setLlmModelOpenai(localStorage.getItem("wisper_llm_model_openai") || LLM_DEFAULT_MODELS.openai);
     setLlmModelCustom(localStorage.getItem("wisper_llm_model_custom") || "");
     setLlmCustomUrl(localStorage.getItem("wisper_llm_custom_url") || LLM_DEFAULT_CUSTOM_URL);
     setLlmCustomKey(localStorage.getItem("wisper_llm_custom_key") || "");
@@ -248,7 +248,7 @@ function Settings() {
                       type="text"
                       value={customStartCmd}
                       onChange={persist(setCustomStartCmd, "wisper_custom_start_cmd")}
-                      placeholder="docker compose -f https://github.com/speaches-ai/speaches.git#master:compose.cuda-cdi.yaml up --detach"
+                      placeholder="docker compose -f speaches-compose.yaml up --detach"
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-primary-500"
                     />
                     <p className="text-white/40 text-xs mt-1">Shell command to start this service if it&apos;s not running</p>

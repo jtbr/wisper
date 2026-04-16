@@ -63,7 +63,6 @@ In case of trouble (see [Troubleshooting](#troubleshooting)), you may want to us
 
 At startup, Wisper will show a one-time dialog with setup instructions if `/dev/uinput` isn't accessible.
 
-
 ### From Source
 
 ```bash
@@ -77,7 +76,6 @@ pnpm install
 # Run in development
 pnpm run electron:dev
 ```
-
 
 ### Running `ydotoold` as a service
 
@@ -138,6 +136,39 @@ If you need to configure the shortcut yourself, add a custom keyboard shortcut i
 - **AppImage**: `/path/to/Wisper.AppImage --no-sandbox`
 - **Development**: `pnpm run electron /path/to/wisper --no-sandbox`
 
+## Auto-starting Wisper
+
+To have Wisper start automatically when you log in:
+
+- **Package install — XDG autostart** (works on GNOME, KDE, XFCE, and most DEs):
+  ```bash
+  mkdir -p ~/.config/autostart
+  cp /usr/share/applications/wisper.desktop ~/.config/autostart/
+  ```
+
+- **Package install — Desktop Environment settings**:
+  - **GNOME**: open **Settings → Apps → Startup Applications** and add Wisper
+  - **KDE Plasma**: open **System Settings → Autostart** and add `/usr/local/bin/wisper`
+  - **Other**: most have an Autostart or Session Startup settings configuration; add Wisper as `/usr/local/bin/wisper`
+
+- **Package install — systemd user service**:
+  ```bash
+  cat > ~/.config/systemd/user/wisper.service << 'EOF'
+  [Unit]
+  Description=Wisper Voice Dictation
+
+  [Service]
+  ExecStart=/usr/local/bin/wisper
+  Restart=on-failure
+
+  [Install]
+  WantedBy=default.target
+  EOF
+  systemctl --user enable --now wisper
+  ```
+
+- **AppImage**: use Desktop Environment or systemd approaches, substituting `/path/to/Wisper.AppImage --no-sandbox` as the command.
+
 ## Configuration
 
 ### Transcription
@@ -166,11 +197,11 @@ For the **Custom** provider, it's best to use a model with at least 8B parameter
 
 For both the transcription and LLM providers, the optional **Start Command** field (under Custom settings) lets Wisper auto-start the server when it isn't running. On first recording, Wisper health-checks each configured custom endpoint. If the check fails and a start command is set, it runs that command and waits up to 15 seconds for the server to respond before proceeding.
 
-Wisper also sends a warm-up request to each custom endpoint on first use (and periodically thereafter, if it hasn't been used for 5 minutes [by default]) to pre-load the model into GPU memory. This avoids the long first-request delay that occurs when models are loaded on demand.
+Wisper also sends a *warm-up* request to each custom endpoint on first use (and periodically thereafter, if it hasn't been used for 5 minutes [by default]) to pre-load the model into GPU memory. This avoids the long first-request delay that occurs when models are loaded on demand.
 
 #### Speaches custom local transcription - Docker setup
 
-If you don't already have [`speaches`](https://speaches.ai), but you have `docker compose` you can set it to run automatically with zero install simply by adding `docker compose -f https://github.com/speaches-ai/speaches.git#master:compose.cuda-cdi.yaml up --detach` as the transcription start command (this `yaml` file assumes you have an Nvidia GPU with CDI support, adjust as necessary). The first time you're running you'll need to [download a Whisper STT model as described here](https://speaches.ai/usage/model-discovery/#__tabbed_1_2), for example `Systran/faster-distil-whisper-large-v3`. That's it!
+If you don't already have [`speaches`](https://speaches.ai), but you have `docker compose` you can set it to run automatically with zero install simply by adding `docker compose -f https://github.com/speaches-ai/speaches.git#master:compose.cuda-cdi.yaml up --detach` as the transcription start command (this `yaml` file assumes you have an Nvidia GPU with CDI support; adjust as necessary). The first time it runs you'll need to open the [speaches web interface](http://localhost:9000) and [download a Whisper STT model as described here](https://speaches.ai/usage/model-discovery/#__tabbed_1_2), for example `Systran/faster-distil-whisper-large-v3`. That's it!
 
 ### Settings Reference
 

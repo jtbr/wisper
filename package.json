@@ -1,7 +1,7 @@
 {
   "name": "wisper",
   "version": "3.0.0",
-  "description": "WisprFlow-like voice dictation app for Ubuntu",
+  "description": "Voice input for Linux",
   "main": "electron/main.cjs",
   "homepage": "https://github.com/jtbr/wisper",
   "type": "module",

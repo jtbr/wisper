@@ -1,4 +1,7 @@
 #!/bin/bash
+# Add wisper to PATH via a symlink in /usr/local/bin
+ln -sf /opt/Wisper/wisper /usr/local/bin/wisper
+
 # Grant the active (logged-in) user write access to /dev/uinput, required by ydotool.
 # TAG+="uaccess" is the modern systemd/logind approach: no group membership or re-login needed.
 # GROUP/MODE provide a fallback for elogind-based non-systemd desktops.
