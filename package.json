@@ -23,6 +23,7 @@
   "author": "Justin Briggs",
   "license": "MIT",
   "devDependencies": {
+    "@ricky0123/vad-web": "^0.0.30",
     "@tailwindcss/vite": "^4.2.2",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
@@ -73,13 +74,15 @@
         "ydotool"
       ]
     },
+    "directories": {
+      "output": "release"
+    },
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "assets/**/*"
-    ]
+      "assets/icon.png"
+    ],
+    "afterPack": "scripts/strip-locales.cjs"
   },
-  "dependencies": {
-    "@ricky0123/vad-web": "^0.0.30"
-  }
+  "dependencies": {}
 }

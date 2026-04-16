@@ -23,6 +23,7 @@ let currentShortcut = "Ctrl+Alt+Space";
 let lastTranscript = null;
 
 const isDev = !app.isPackaged;
+const appIcon = path.join(__dirname, isDev ? "../assets/icon-dev.png" : "../assets/icon.png");
 
 const LOG_FILE = '/tmp/wisper.log';
 function log(level, message) {
@@ -34,6 +35,7 @@ waylandShortcut.init(log);
 
 app.commandLine.appendSwitch("disable-gpu-compositing");
 app.commandLine.appendSwitch("enable-accelerated-2d-canvas");
+app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
 
 let isWayland = false;
 try {
@@ -143,7 +145,7 @@ function createWindow(offsetFromBottom) {
       sandbox: false,
       webSecurity: false, // disable cors checks, same-origin policy, mixed content blocking, file:// isolation, so we can load from APIs that don't send cors headers
     },
-    icon: path.join(__dirname, "../assets/icon.png"),
+    icon: appIcon,
   });
 
   if (isDev) {
@@ -206,7 +208,7 @@ function createSettingsWindow(tab = null) {
       nodeIntegration: false,
       sandbox: false,
     },
-    icon: path.join(__dirname, "../assets/icon.png"),
+    icon: appIcon,
     title: "Wisper Settings",
   });
 
@@ -225,7 +227,7 @@ function createSettingsWindow(tab = null) {
 }
 
 function createTray() {
-  const iconPath = path.join(__dirname, "../assets/icon.png");
+  const iconPath = appIcon;
   const icon = nativeImage.createFromPath(iconPath);
 
   if (icon.isEmpty()) {
@@ -506,6 +508,18 @@ app.on("window-all-closed", () => {
 
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();
+  // Chromium doesn't reliably remove its Mojo IPC channel files from userData.
+  // Only the main instance cleans up — the second instance must not touch files
+  // that the main instance may still be using.
+  if (gotTheLock) {
+    const dir = app.getPath("userData");
+    try {
+      for (const f of fs.readdirSync(dir)) {
+        if (/^\.org\.chromium\.Chromium\.[A-Za-z0-9]+$/.test(f))
+          try { fs.unlinkSync(path.join(dir, f)); } catch (_) {}
+      }
+    } catch (_) {}
+  }
 });
 
 process.on("SIGINT", () => {
